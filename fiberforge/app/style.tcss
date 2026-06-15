@@ -1,0 +1,9 @@
+#run-list {
+    width: 30%;
+    border: solid green;
+}
+
+#run-details {
+    padding: 2;
+    border: solid blue;
+}

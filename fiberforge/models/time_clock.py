@@ -1,0 +1,120 @@
+# fiberforge/jobs/time_clock.py
+from dataclasses import dataclass
+from datetime import date, datetime, timedelta
+from typing import Optional, Self, overload, Any
+
+from .common import Serializable
+
+# ---------------------------------------------------------------------------
+# Time Tracking
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class TimeSpan:
+    start: datetime
+    end: Optional[datetime]
+
+    def __post_init__(self):
+        if self.end and self.start > self.end:
+            raise ValueError("Your time span cannot be negative.")
+        elif self.as_timedelta < -timedelta(minutes=15):
+            raise ValueError("Your start time is too far in the future.")
+
+    @property
+    def as_timedelta(self) -> timedelta:
+        if self.end:
+            return self.end - self.start
+        else:
+            return datetime.now() - self.start
+
+    @property
+    def is_completed(self) -> bool:
+        return bool(self.end)
+
+    def update_start(self, start: datetime) -> "TimeSpan":
+        return TimeSpan(start, self.end)
+
+    def update_end(self, end: datetime) -> "TimeSpan":
+        return TimeSpan(self.start, end)
+
+
+@dataclass(frozen=True)
+class TimeClock(Serializable):
+    time_spans: tuple[TimeSpan, ...] = ()
+
+    def __post_init__(self):
+        incomplete_time_spans: list[TimeSpan] = [
+            t for t in self.time_spans if not t.is_completed
+        ]
+        if not incomplete_time_spans:
+            return
+        if (
+            len(incomplete_time_spans) > 1
+            or incomplete_time_spans[-1] != self.time_spans[-1]
+        ):
+            raise ValueError("Only your last time span can be incomplete")
+
+    @property
+    def total_time(self) -> timedelta:
+        total: timedelta = timedelta()
+        for t in self.time_spans:
+            total += t.as_timedelta
+        return total
+
+    def time_for_day(self, day: date) -> timedelta:
+        times: list[timedelta] = [
+            t.as_timedelta for t in self.time_spans if t.start.date() == day
+        ]
+        total = timedelta()
+        for t in times:
+            total += t
+        return total
+
+    @property
+    def time_today(self) -> timedelta:
+        return self.time_for_day(date.today())
+
+    @overload
+    def __add__(self, other: "TimeClock") -> "TimeClock": ...
+
+    @overload
+    def __add__(self, other: TimeSpan) -> "TimeClock": ...
+
+    def __add__(self, other):
+        if isinstance(other, TimeSpan):
+            return TimeClock(self.time_spans + (other,))
+        else:
+            return TimeClock(self.time_spans + other.time_spans)
+
+    @overload
+    def __radd__(self, other: "TimeClock") -> "TimeClock": ...
+
+    @overload
+    def __radd__(self, other: TimeSpan) -> "TimeClock": ...
+
+    def __radd__(self, other):
+        if isinstance(other, TimeSpan):
+            return TimeClock((other,) + self.time_spans)
+        else:
+            return TimeClock(other.time_spans + self.time_spans)
+
+    def to_dict(self) -> dict:
+        return {
+            "time_spans": [
+                {
+                    "start": span.start.isoformat(),
+                    "end": span.end.isoformat() if span.end else None,
+                }
+                for span in self.time_spans
+            ]
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "TimeClock":
+        spans = []
+        for s in data["time_spans"]:
+            start = datetime.fromisoformat(s["start"])
+            end = datetime.fromisoformat(s["end"]) if s["end"] else None
+            spans.append(TimeSpan(start=start, end=end))
+        return TimeClock(tuple(spans))

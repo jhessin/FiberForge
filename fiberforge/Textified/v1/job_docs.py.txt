@@ -1,0 +1,671 @@
+import sys
+from abc import ABC
+from datetime import time, timedelta, datetime, date
+from time import perf_counter
+from typing import Iterable, Literal, Optional, Tuple, TypeVar, overload
+from dataclasses import dataclass
+from .utils import FiberRun
+from contextlib import contextmanager
+
+T = TypeVar("T")
+
+"""
+Find a way to color output and stop using asserts.
+Make FiberRun Immutable so it doesn't lose slack.
+Refactor everything. Make it all Immutable and dataclasses
+using rust-like enums.
+Rename state to folder for clarity.
+
+"""
+
+# ============================================================
+#  Tuple Normalization Helper
+# ============================================================
+
+
+@overload
+def _ensure_tuple(value: Iterable[T]) -> Tuple[T, ...]: ...
+@overload
+def _ensure_tuple(value: T) -> Tuple[T, ...]: ...
+
+
+def _ensure_tuple(value):
+    """
+    Normalize a value into a tuple.
+
+    Domain rules:
+    - FiberRun is treated as a *scalar*, not an iterable, even though it
+      implements __iter__. This preserves the original FiberRun object.
+    - Strings and bytes are also treated as scalars.
+    - Any other iterable is converted to a tuple.
+    - Non-iterables fall back to a single-element tuple.
+    """
+    if isinstance(value, (str, bytes, FiberRun)):
+        return (value,)
+    try:
+        return tuple(value)
+    except TypeError:
+        return (value,)
+
+
+# ============================================================
+#  Output Formatting Helpers
+# ============================================================
+
+
+# Global nesting depth for indentation
+_BANNER_DEPTH = 0
+
+
+@contextmanager
+def _wrap(title="Section", color=None, show_time=False, char="=", width=50):
+    global _BANNER_DEPTH
+    indent = "  " * _BANNER_DEPTH
+    _BANNER_DEPTH += 1
+
+    # Optional ANSI colors
+    COLORS = {
+        "red": "\033[31m",
+        "green": "\033[32m",
+        "yellow": "\033[33m",
+        "blue": "\033[34m",
+        "magenta": "\033[35m",
+        "cyan": "\033[36m",
+        None: "",
+    }
+    RESET = "\033[0m"
+
+    color_code = COLORS.get(color, "")
+
+    # Header
+    line = char * width
+    print(f"{indent}{color_code}{line}{RESET}")
+    print(f"{indent}{color_code}{title.center(width)}{RESET}")
+    print(f"{indent}{color_code}{line}{RESET}")
+
+    start = perf_counter()
+
+    try:
+        yield
+    except Exception as e:
+        print(f"{indent}⚠️  Exception: {e}", file=sys.stderr)
+        raise
+    finally:
+        elapsed = perf_counter() - start
+        footer = f"{title} completed in {elapsed:.3f}s" if show_time else title
+        print(f"{indent}{color_code}{footer.center(width)}{RESET}")
+        print(f"{indent}{color_code}{line}{RESET}")
+        _BANNER_DEPTH -= 1
+
+
+# @contextmanager
+# def _wrap(heading: str):
+#     """Print a standardized section header."""
+#     print()
+#     print(f"==={heading}===")
+#     """Print the stuff that goes inside"""
+#     try:
+#         yield
+#     finally:
+#         """Print a standardized section footer."""
+#         length = len(heading) + len("======")
+#         ending = "="
+#         duplicates = length // len(ending) + (1 if length % len(ending) > 0 else 0)
+#         print(ending * duplicates)
+#         print()
+
+
+# ============================================================
+#  Sheath
+# ============================================================
+
+
+@dataclass(frozen=True)
+class Sheath:
+    """
+    Represents a fiber sheath.
+
+    Attributes:
+        name: Identifier for the sheath.
+        new: Whether the sheath is newly installed.
+        fiber_count: Number of fibers in the sheath.
+        lengths: Optional tuple of measured lengths.
+    """
+
+    name: str
+    new: bool = False
+    fiber_count: int = 24
+    run: Optional[FiberRun] = None
+
+    def __str__(self) -> str:
+        status = "new " if self.new else ""
+        return f"{self.fiber_count}CT {status}sheath {self.name}"
+
+
+# ============================================================
+#  Can
+# ============================================================
+
+
+@dataclass
+class Can:
+    """
+    Represents a fiber can, optionally containing attached sheaths.
+    """
+
+    name: str = ""
+    new: bool = False
+    attached_sheaths: tuple[Sheath, ...] = ()
+
+    def __str__(self) -> str:
+        sheath_str = "\n".join(f"  {sheath}" for sheath in self.attached_sheaths)
+        return f"{self.name}:\n{sheath_str}\n"
+
+
+# ============================================================
+#  JobDoc Base Class
+# ============================================================
+
+
+class JobDoc(ABC):
+    """
+    Base class for all job documentation types.
+
+    This class is intentionally attribute-driven:
+    subclasses set attributes directly rather than passing values
+    through an __init__ method. This keeps the API flexible and
+    matches how your domain objects are constructed in practice.
+    """
+
+    # -------------------------
+    # Basic Job Metadata
+    # -------------------------
+    details: str = ""
+    job_name: str = ""
+    job_type: Literal["Asbuilt", "Design", None] = None
+    task_name: str = ""
+    company_name: str = ""
+    start: Optional[time] = None
+    end: Optional[time] = None
+    region: Literal["MWR", "BSR", "HOUSTON", None] = None
+    state: str = ""
+    address: Optional[str] = None
+    revision_number: int = 0
+    lat: str = ""
+    long: str = ""
+    clli: Optional[str] = None
+
+    # -------------------------
+    # Prep / Validation
+    # -------------------------
+
+    def prep_check(self) -> None:
+        """
+        Validate that all required fields for job preparation are present.
+        """
+        assert self.job_name, "job_name is required"
+        assert self.job_type, "job_type is required"
+        assert self.task_name, "task_name is required"
+        assert self.company_name, "company_name is required"
+        assert self.region, "region is required"
+        assert self.state, "state is required"
+        assert self.address, "address is required"
+
+    def clli_check(self) -> bool:
+        """
+        Validate CLLI requirements for Asbuilt jobs in MWR/HOUSTON.
+        """
+        if self.job_type == "Asbuilt" and self.region in ("HOUSTON", "MWR"):
+            assert self.clli, "clli is required for HOUSTON and MWR Asbuilts"
+            return True
+        return False
+
+    # -------------------------
+    # CFAT Fields
+    # -------------------------
+
+    mux: Optional[str] = None
+    mux_channels: tuple[int, ...] = ()
+    mux_types: Iterable[str] | str = ()
+    mux_address: Optional[str] = None
+    mux_location: Optional[str] = None
+    distance_to_hub: Optional[int] = None
+    disable_cfat: bool = False
+    bandwidth: Literal[1, 10, 100] | None = None
+    preterm: str = ""
+    ext_id: str = ""
+
+    def cfat_check(self) -> bool:
+        """
+        Validate CFAT requirements for Design jobs in MWR/HOUSTON.
+
+        Prints debug information when CFAT is active.
+        """
+        if self.job_type == "Design" and self.region in ("HOUSTON", "MWR"):
+            if self.disable_cfat:
+                return False
+
+            assert self.mux, "mux is required for MWR and HOUSTON(cfat)"
+            assert self._mux_types, "mux_type is required for MWR and HOUSTON(cfat)"
+            assert self.mux_address, "mux_address is required for MWR and HOUSTON(cfat)"
+            assert (
+                self.mux_location
+            ), "mux_location is required for MWR and HOUSTON(cfat)"
+            assert (
+                self.mux_channels
+            ), "mux_channels are required for MWR and HOUSTON(cfat)"
+            assert (
+                self.distance_to_hub
+            ), "distance_to_hub is required for MWR and HOUSTON(cfat)"
+            assert self.bandwidth, "bandwidth is required for MWR and HOUSTON(cfat)"
+            assert self.preterm, "preterm is required for MWR and HOUSTON(cfat)"
+            assert self.ext_id, "ext_id is required for MWR and HOUSTON(cfat)"
+
+            return True
+        return False
+
+    # -------------------------
+    # Network / Fiber Fields
+    # -------------------------
+
+    nodes: Iterable[str] | str = ()
+    segment: Optional[str] = None
+    hubs: Iterable[str] | str = ()
+    endsites: Iterable[str] | str = ()
+    cans_involved: Iterable[Can] | Can = ()
+    runs_only: bool = False
+    removing: Iterable[Can | Sheath] | Can | Sheath = ()
+    lunch_time: Optional[timedelta] = None
+
+    notes: str = "No Notes"
+
+    # ============================================================
+    #  Normalized Properties
+    # ============================================================
+
+    @property
+    def _mux_types(self) -> Tuple[str, ...]:
+        return _ensure_tuple(self.mux_types)
+
+    @property
+    def _nodes(self) -> Tuple[str, ...]:
+        return _ensure_tuple(self.nodes)
+
+    @property
+    def _hubs(self) -> Tuple[str, ...]:
+        return _ensure_tuple(self.hubs)
+
+    @property
+    def _endsites(self) -> Tuple[str, ...]:
+        return _ensure_tuple(self.endsites)
+
+    @property
+    def _cans_involved(self) -> Tuple[Can, ...]:
+        """
+        Normalize cans_involved into a tuple of Can objects.
+        """
+        if isinstance(self.cans_involved, Can):
+            return (self.cans_involved,)
+        return tuple(self.cans_involved)
+
+    @property
+    def _removing(self) -> Tuple[Can | Sheath, ...]:
+        """
+        Normalize removing into a tuple of Can/Sheath objects.
+        """
+        if isinstance(self.removing, (Can, Sheath)):
+            return (self.removing,)
+        return tuple(self.removing)
+
+    @property
+    def _fiber_runs(self) -> Tuple[FiberRun, ...]:
+        """
+        Normalize fiber_runs into a tuple of FiberRun objects.
+
+        IMPORTANT:
+        FiberRun is treated as a scalar, not an iterable, to preserve
+        the original object and avoid expanding into child runs.
+        """
+        run_list: list[FiberRun] = []
+        for can in self._cans_involved:
+            for sheath in can.attached_sheaths:
+                if sheath.run:
+                    run_list.append(sheath.run)
+
+        return tuple(run_list)
+
+    # ============================================================
+    #  Computed Properties
+    # ============================================================
+
+    @property
+    def total_time(self) -> Optional[timedelta]:
+        """
+        Compute total working time, accounting for:
+        - overnight shifts
+        - optional lunch deduction
+        """
+        if self.start:
+            start_dt = datetime.combine(date.today(), self.start)
+            end_dt = (
+                datetime.combine(date.today(), self.end) if self.end else datetime.now()
+            )
+
+            # Handle overnight shift
+            if end_dt < start_dt:
+                end_dt += timedelta(days=1)
+
+            duration = end_dt - start_dt
+
+            if self.lunch_time:
+                duration -= self.lunch_time
+
+            return duration
+
+        return None
+
+    @property
+    def length(self) -> int:
+        """
+        Total length (in feet) of all attached sheaths on all involved cans.
+        """
+        total = 0
+        for can in self._cans_involved:
+            for sheath in can.attached_sheaths:
+                if sheath.run:
+                    for run in sheath.run:
+                        for span in run.span_list:
+                            total += sum(span.lengths)
+        return total
+
+    @property
+    def total_runs(self) -> FiberRun:
+        total_runs = FiberRun("Totals")
+        if self._fiber_runs:
+            for runs in self._fiber_runs:
+                for run in runs:
+                    total_runs += run
+                #     print(run.itemized if self.runs_only else run.details)
+                #     print(run)
+                # print(runs)
+        return total_runs
+
+    # ============================================================
+    #  Display Methods
+    # ============================================================
+
+    def show_prep(self) -> None:
+        """
+        Show basic job preparation information and notes.
+        """
+        with _wrap("BASIC INFO"):
+            self.prep_check()
+            print(self.job_name)
+            print(self.task_name)
+            print(self.job_type)
+            print(self.region)
+            print(self.state)
+
+            if self.clli_check():
+                print(f"CLLI: {self.clli}")
+
+            print(self.mux)
+            if self.clli:
+                print(self.clli)
+
+            print()
+            print(self.company_name)
+            print(self.address)
+            print(f"    {self.notes.strip()}")
+
+    def show_runs(self) -> None:
+        """
+        Show removing items and fiber runs, including totals.
+        """
+        with _wrap("RUNS"):
+            if self._removing:
+                for item in self._removing:
+                    print(item)
+
+            def process_run(run: FiberRun):
+                if self.runs_only:
+                    run.print_slack()
+                else:
+                    print(run.details)
+                print(run)
+
+            # Show the runs broken up by can
+            if self._fiber_runs:
+                for can in self._cans_involved:
+                    for span in can.attached_sheaths:
+                        if span.run:
+                            run: FiberRun = span.run
+                        else:
+                            continue
+                        print(f"Can: {can.name}")
+                        print(f"Span: {run.name}")
+                        process_run(run)
+
+                with _wrap("Totals"):
+                    print(self.total_runs)
+
+    def show_cans(self) -> None:
+        """
+        Show all cans involved in the job.
+        """
+        if self._cans_involved:
+            for can in self._cans_involved:
+                print(can)
+
+        total_cans = len(self._cans_involved)
+        total_new_cans = len([can for can in self._cans_involved if can.new])
+
+        print(f"Preterm: {self.preterm}")
+        print(f"New cans: {total_new_cans}")
+        print(f"Total cans: {total_cans}")
+        print(self.total_runs)
+
+    def show_files(self) -> None:
+        """
+        Show expected deliverable file names for this job.
+        """
+        with _wrap("FILES"):
+            tail = "_A" if self.job_type == "Asbuilt" else "_D"
+            if self.revision_number:
+                tail = f"{tail}_V{self.revision_number}"
+
+            endsite = (
+                self._endsites[0]
+                if self._endsites
+                else self._nodes[0] if self._nodes else "OVERALL"
+            )
+
+            # Base maps and design docs
+            print(f"{self.job_name}_{endsite}_BM_F{tail}.pdf")
+            print(f"{self.job_name}_{endsite}_DC_F{tail}.pdf")
+
+            # Region-specific node deliverables
+            if self.region in ("MWR", "HOUSTON"):
+                for node in self._nodes:
+                    print(f"{self.job_name}_{node}_DC_F{tail}.zip")
+
+            # Endsite-specific deliverables
+            for endsite in self._endsites:
+                print(f"{self.job_name}_{endsite}_L{tail}.xlsx")
+                print(f"{self.job_name}_{endsite}_CS{tail}.pdf")
+                print(f"{self.job_name}_{endsite}_SS{tail}.pdf")
+
+                if (
+                    self.clli
+                    and self.job_type == "Asbuilt"
+                    and self.region in ("MWR", "HOUSTON")
+                ):
+                    print(f"{self.job_name}_{endsite}_CLLI_A")
+                    print(f"{self.job_name}_{endsite}_CLLI_A.png")
+
+            if self.region == "BSR":
+                if self._endsites:
+                    print(f"{self.job_name}_BEFORE_RSD{tail}.png")
+                    print(f"{self.job_name}_AFTER_RSD{tail}.png")
+                    print(
+                        f"{self.job_name}_{endsite}_REGION_SPECIFIC_DELIVERABLE_TYPE{tail}.zip"
+                    )
+
+            with _wrap("SPLICES"):
+                for can in self._cans_involved:
+                    print(f"{self.job_name}_{can.name}_SP{tail}.xlsx")
+
+            print()
+            if self.job_type == "Design":
+                if self.cfat_check():
+                    print(f"{self.job_name}_CFAT{tail}.xlsx")
+                print(f"{self.job_name}_BOM{tail}.csv")
+                print(f"{self.job_name}_F&P{tail}.csv")
+                if self._endsites:
+                    print(f"{self.job_name}_{self._endsites[0]}_AL{tail}.xlsm")
+
+    def show_time(self) -> None:
+        """
+        Show total time and end/start time, or warn if start time is missing.
+        """
+        with _wrap("TIME"):
+            if self.total_time and self.start:
+                total_seconds = int(self.total_time.total_seconds())
+                hours, remainder = divmod(total_seconds, 3600)
+                minutes = remainder // 60
+                print(f"Total time: {hours:02d}:{minutes:02d}")
+                print(f"Start time: {self.start.strftime('%H:%M')}")
+                if self.end:
+                    print(f"End time:   {self.end.strftime('%H:%M')}")
+            else:
+                raise Exception("BE SURE TO RECORD YOUR START TIME!")
+
+    def show_cfat(self) -> None:
+        """
+        Show CFAT-related information for Design jobs in MWR/HOUSTON.
+        """
+        with _wrap("CFAT INFO"):
+            if self.disable_cfat:
+                print("CFAT disabled")
+                return
+
+            if not self.cfat_check():
+                return
+
+            # Required fields
+
+            print(f"Hub distance: {self.distance_to_hub}")
+            print(self.mux)
+            for mux in self._mux_types:
+                print(mux)
+
+            print(self.mux_address)
+            print(self.mux_location)
+            print(f"{self.bandwidth}G")
+            print(self.preterm)
+            print(self.ext_id)
+
+            for endsite in self._endsites:
+                print(endsite)
+            for channel in self.mux_channels:
+                print(channel)
+
+    def show_design(self) -> None:
+        """
+        Show design-specific information (lat/long, preterm) for Design jobs.
+        """
+        with _wrap("DESIGN INFO"):
+            if self.job_type == "Design":
+                assert self.lat and self.long, "lat and long are required for designs"
+                assert self._nodes, "At least one node is required for designs"
+                assert self.segment, "segment is required for design reports"
+                print(f"{self.lat}, {self.long}")
+                print(self.lat)
+                print(self.long)
+                if self.preterm:
+                    print(self.preterm)
+
+    def show_map_info(self) -> None:
+        """
+        Show map-related information: endsites, hubs, and address.
+        """
+        with _wrap("MAP INFO"):
+            # for endsite in self._endsites:
+            #     print(endsite)
+
+            for node in self._nodes:
+                sep = "\n" if node == self._nodes[-1] else ", "
+                print(node, end=sep)
+
+            print(self.segment)
+
+            if not self._hubs:
+                raise Exception("At least one HUB is required")
+
+            for hub in self._hubs:
+                print(hub, end=", " if hub != self._hubs[-1] else "\n")
+
+            print(self.address)
+
+    def show(self) -> None:
+        """
+        High-level orchestrator: show all relevant sections for this job.
+
+        If runs_only is True, only prep, time, and runs are shown.
+        """
+        if self.runs_only:
+            self.show_prep()
+            self.show_time()
+            self.show_runs()
+            return
+
+        self.show_prep()
+
+        assert self.start, "DON'T FORGET TO RECORD YOUR START TIME!"
+
+        # _wrap("TIME", self.show_time)
+
+        if self.length:
+            print(f"Total feet: {self.length}")
+
+            self.show_cfat()
+
+        self.show_design()
+
+        self.show_map_info()
+
+        self.show_files()
+
+        self.show_runs()
+
+        # _wrap("CANS", self.show_cans)
+
+
+# ============================================================
+#  Hold / Completed
+# ============================================================
+
+
+class Hold(JobDoc):
+    """
+    JobDoc variant representing a job that is currently on hold.
+    """
+
+    def show(self) -> None:
+        with _wrap("JOB ON HOLD"):
+            print(self.job_name)
+            self.show_time()
+
+
+class Completed(JobDoc):
+    """
+    JobDoc variant representing a job that has been completed.
+    """
+
+    def show(self) -> None:
+
+        with _wrap("COMPLETED JOB", color=""):
+            print(self.job_name)
+            print(self.task_name)
+            print(f"Total footage: {self.length}")
+            self.show_time()

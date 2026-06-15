@@ -1,0 +1,133 @@
+lengths = [
+    99,
+    139,
+    113,
+    103,
+    99,
+    87,
+    112,
+    70,
+    112,
+    149,
+    148,
+    122,
+    630,
+    7,
+    66,
+    88,
+    108,
+    136,
+    141,
+    60,
+    162,
+    264,
+    135,
+    110,
+    253,
+    165,
+    104,
+    73,
+    132,
+    143,
+    140,
+    96,
+    123,
+    87,
+    112,
+    137,
+    99,
+    160,
+    135,
+    148,
+    137,
+    182,
+    152,
+    113,
+    110,
+    143,
+    173,
+    126,
+    148,
+    73,
+    203,
+    125,
+    136,
+    147,
+    219,
+    211,
+    211,
+    211,
+    199,
+    204,
+    185,
+    270,
+    46,
+    195,
+    72,
+    17,
+    46,
+    1168,
+    98,
+    129,
+    20,
+    21,
+    1795,
+    90,
+    2110,
+    16,
+    140,
+    55,
+    391,
+    34,
+    506,
+    45,
+    94,
+    54,
+    56,
+    106,
+    40,
+    17,
+    82,
+    79,
+    79,
+    74,
+    118,
+]
+
+def slackpoints(lengths: list[int]) -> list[str]:
+    slack_spots: list[tuple[int, int]] = []
+    can_spots: list[tuple[int, int]] = []
+
+    slack_total = 0
+    can_total = 0
+    for i in range(len(lengths)):
+        slack_total += lengths[i]
+        can_total += lengths[i]
+        if slack_total >= 1500:
+            slack_spots.append((i, i+1))
+            slack_total = 0
+        if can_total >= 5000:
+            can_spots.append((i, i+1))
+            can_total = 0
+            slack_total = 0
+
+    final_spots: list[tuple[int, str]] = []
+    for bef, after in slack_spots:
+        final_spots.append((bef, f"There should be slack between {bef} and {after}"))
+    for bef, after in can_spots:
+        final_spots.append((bef, f"There should be a can between {bef} and {after}"))
+
+    final_spots.sort(key=lambda item : item[0])
+    
+
+    return [spot[1] for spot in final_spots]
+
+
+def print_slacks(lengths: list[int]):
+    spots = slackpoints(lengths)
+
+    for spot in spots:
+        print(spot)
+
+if __name__ == '__main__':
+    print_slacks(lengths)

@@ -1,0 +1,34 @@
+lengths = [
+        136,
+        107,
+        123,
+        186,
+        214,
+        75,
+        18,
+        190,
+        199,
+        153,
+        117,
+        100,
+        218,
+        116,
+        20,
+        40,
+        5,
+        ]
+
+def midpoint(lengths: list[int]) -> int:
+    half_length = sum(lengths) / 2
+
+    total = 0
+    for i in range(len(lengths)):
+        total += lengths[i]
+        if total >= half_length:
+            return i
+
+    return -1
+
+mid = midpoint(lengths)
+print(f"Midpoint is between {mid+1} and {mid + 2}")
+print(f"Midpoint is between {lengths[mid]} and {lengths[mid + 1]}")

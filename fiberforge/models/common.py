@@ -1,0 +1,34 @@
+import json
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import Any, Type, TypeVar
+
+T = TypeVar("T", bound="Serializable")
+
+
+class Serializable(ABC):
+    @abstractmethod
+    def to_dict(self) -> dict[str, Any]: ...
+
+    @classmethod
+    @abstractmethod
+    def from_dict(cls: Type[T], data: dict[str, Any]) -> T: ...
+
+    def to_json(self) -> str:
+        return json.dumps(self.to_dict(), indent=2)
+
+    @classmethod
+    def from_json(cls: Type[T], text: str) -> T:
+        return cls.from_dict(json.loads(text))
+
+
+@dataclass(frozen=True)
+class Address(Serializable):
+    value: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Address":
+        return cls(data["value"])
+
+    def to_dict(self) -> dict:
+        return {"value": self.value}

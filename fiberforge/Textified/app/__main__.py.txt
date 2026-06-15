@@ -1,0 +1,5 @@
+# py_tools/app/__main__.py
+from .app import FiberApp
+
+if __name__ == "__main__":
+    FiberApp().run()

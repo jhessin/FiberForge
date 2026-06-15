@@ -1,0 +1,27 @@
+points = [
+        # 20710,
+        20782,
+        20882,
+        21578,
+        22094,
+        22466,
+        22886,
+        22678,
+        23500,
+        # 23596,
+        ]
+points.sort()
+
+def main():
+    splits = []
+    length = len(points)
+    for i in range(length):
+        if i < length - 1:
+            splits.append(points[i + 1] - points[i])
+
+    print(points)
+    print(splits)
+    print(sum(splits))
+    print(points[length - 1] - points[0])
+if __name__ == '__main__':
+    main()

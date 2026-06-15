@@ -1,0 +1,513 @@
+from collections import defaultdict
+from enum import Enum
+from typing import Generator, Self, Iterable
+
+SLACK_EVERY = 1500
+CAN_EVERY = 5000
+MIN_SLACK = 1000
+
+
+def calculate_lengths(*data: tuple | int):
+    for i in data:
+        if isinstance(i, tuple):
+            print(sum(i))
+        else:
+            print(i)
+
+
+class SpanType(Enum):
+    UG = 1
+    OL = 2
+    SLACK = 3
+    RISER = 4
+    INSIDE = 5
+    NEW_OL = 6
+    NEW_UG = 7
+    NEW_CAN = 8
+    EXISTING_CAN = 9
+
+    def __str__(self) -> str:
+        match self:
+            case SpanType.UG:
+                return "UG"
+            case SpanType.OL:
+                return "OL"
+            case SpanType.SLACK:
+                return "Slack"
+            case SpanType.RISER:
+                return "Risers"
+            case SpanType.INSIDE:
+                return "Inside"
+            case SpanType.NEW_UG:
+                return "New UG"
+            case SpanType.NEW_OL:
+                return "New OL"
+            case SpanType.NEW_CAN | SpanType.EXISTING_CAN:
+                # return "== SPLIT FIBER RUN HERE =="
+                return ""
+
+
+class Filter:
+    name: str
+    data: tuple[SpanType, ...]
+
+    def __init__(self, name: str, *data: SpanType):
+        """
+
+        :type data: SpanType
+        """
+        self.name = name
+        self.data = data
+
+    def __repr__(self) -> str:
+        return f"Filter({self.name}, {self.data})"
+
+
+BASE_FILTER = Filter(
+    "Basic",
+    SpanType.UG,
+    SpanType.OL,
+    SpanType.NEW_OL,
+    SpanType.NEW_UG,
+    SpanType.INSIDE,
+)
+
+SLACK_FILTER = Filter("Slack", SpanType.SLACK)
+
+RISER_FILTER = Filter("Risers", SpanType.RISER)
+
+OL_FILTER = Filter(
+    "Total OL",
+    SpanType.OL,
+    SpanType.NEW_OL,
+)
+
+UG_FILTER = Filter(
+    "Total UG",
+    SpanType.UG,
+    SpanType.NEW_UG,
+    SpanType.INSIDE,
+)
+
+UG_WITH_RISERS = Filter(
+    "UG with Risers",
+    SpanType.UG,
+    SpanType.NEW_UG,
+    SpanType.RISER,
+)
+
+
+class FiberSpan:
+    lengths: list[int]
+    span_type: SpanType
+
+    def __init__(self, desc: SpanType, *lengths: int):
+        self.span_type = desc
+        self.lengths = [*lengths]
+
+    def __str__(self):
+        return f"{self.span_type} = {sum(self.lengths)}"
+
+    def __repr__(self) -> str:
+        lengths = [str(length) for length in self.lengths]
+        return f"FiberSpan(SpanType.{self.span_type.name}, {', '.join(lengths)})"
+
+    def __add__(self, other: Self | int):
+        if isinstance(other, FiberSpan):
+            return sum(self.lengths) + sum(other.lengths)
+        return sum(self.lengths) + other
+
+    def __radd__(self, other):
+        if other == 0:
+            return sum(self.lengths)
+        return self.__add__(other)
+
+
+# Create a type alias for a list of fiber spans
+type SpanList = list[FiberSpan]
+
+
+class FiberRun:
+
+    def __init__(self, name: str, *spans: FiberSpan):
+        self.name: str = name
+        self.span_list: SpanList = [*spans]
+
+    @classmethod
+    def load(cls, filename: str) -> Self:
+        """
+        Loads a human-readable FiberRun layout string safely executing object constructors.
+        """
+        with open(filename, "r") as file:
+            file_contents = file.read()
+            # Define a safe namespace context containing our target data types
+            safe_context = {
+                "FiberRun": cls,
+                "FiberSpan": FiberSpan,
+                "SpanType": SpanType,
+            }
+            # eval runs the layout code strictly restricted to our custom classes
+            return eval(file_contents, {"__builtins__": None}, safe_context)
+
+    def __repr__(self):
+        span_list = [repr(span) for span in self.span_list]
+        if span_list:
+            return f"FiberRun({self.name}, {', '.join(span_list)})"
+        return f"FiberRun('{self.name}')"
+
+    def save(self, filename: str):
+        with open(filename, "w") as file:
+            file.write(repr(self))
+
+    def clean(self):
+        """
+        Safely removes dead/empty spans without causing loop mutations
+        """
+        self.span_list = [
+            span
+            for span in self.span_list
+            if span.span_type not in (SpanType.NEW_CAN, SpanType.SLACK)
+            and (len(span.lengths) > 0 or span.span_type == SpanType.EXISTING_CAN)
+        ]
+
+    def total_to_span(self, *span_types: SpanType) -> int:
+        """
+        Returns the total length accumulated since the most recent span
+        whose type is in span_types.
+
+        If no such span exists, returns the total length of the entire run.
+        """
+
+        total = 0
+
+        # Walk backward through spans
+        for span in reversed(self.span_list):
+            # If this span is one of the target types, stop immediately
+            if span.span_type in span_types:
+                return total
+
+            # Otherwise accumulate its lengths
+            total += sum(span.lengths)
+
+        # No matching span found — return full accumulated total
+        return total
+
+    def __iadd__(self, other: Self | SpanList | FiberSpan | int):
+        if isinstance(other, FiberRun):
+            self.span_list += other.span_list
+        elif isinstance(other, list):
+            self.span_list += other
+        elif isinstance(other, FiberSpan):
+            self.span_list += [other]
+        else:
+            self.span_list[-1].lengths.append(other)
+        return self
+
+    def __add__(self, other: Self | SpanList | FiberSpan | int) -> Self:
+        new_run = type(self)(self.name, *self.span_list)
+        new_run += other
+        return new_run
+
+    def _split(self) -> Generator["FiberRun", None, None]:
+        """
+        Clean, deterministic fiber splitting algorithm.
+        - No shared FiberSpan objects
+        - Slack distance tracked manually
+        - CAN splits handled cleanly
+        - Slack inserted only when needed
+        """
+
+        self.clean()
+
+        split_counter = 0
+        new_run = type(self)(f"{self.name}_{split_counter}")
+
+        slack_distance = 0
+
+        def make_short_slack():
+            return FiberSpan(SpanType.SLACK, 50)
+
+        def make_long_slack():
+            return FiberSpan(SpanType.SLACK, 150)
+
+        def add_length(span_type: SpanType, length: int):
+            nonlocal slack_distance
+            if new_run.span_list and new_run.span_list[-1].span_type == span_type:
+                new_run.span_list[-1].lengths.append(length)
+            else:
+                new_run.span_list.append(FiberSpan(span_type, length))
+            slack_distance += length
+
+        def finalize_run():
+            nonlocal split_counter, new_run, slack_distance
+            yield new_run
+            split_counter += 1
+            tail = f"_{split_counter}" if split_counter else ""
+            new_run = type(self)(f"{self.name}{tail}")
+            slack_distance = 0
+
+        for span in self.span_list:
+
+            # Risers pass through untouched
+            if span.span_type == SpanType.RISER:
+                new_run.span_list.append(FiberSpan(SpanType.RISER, *span.lengths))
+                continue
+
+            # Existing CAN forces a split
+            if span.span_type in (SpanType.NEW_CAN, SpanType.EXISTING_CAN):
+                if slack_distance > MIN_SLACK:
+                    new_run.span_list.append(make_short_slack())
+                yield from finalize_run()
+                new_run.span_list.append(FiberSpan(span.span_type))
+                new_run.span_list.append(make_short_slack())
+                continue
+
+            # Normal spans
+            for length in span.lengths:
+
+                add_length(span.span_type, length)
+
+                # CAN split threshold
+                if (
+                    new_run.total_to_span(SpanType.NEW_CAN, SpanType.EXISTING_CAN)
+                    >= CAN_EVERY
+                ):
+                    if slack_distance > MIN_SLACK:
+                        new_run.span_list.append(make_short_slack())
+                    yield from finalize_run()
+                    new_run.span_list.append(FiberSpan(SpanType.NEW_CAN))
+                    new_run.span_list.append(make_short_slack())
+                    continue
+
+                # Slack threshold
+                if slack_distance >= SLACK_EVERY:
+                    new_run.span_list.append(make_long_slack())
+                    slack_distance = 0
+
+        yield new_run
+
+    def __iter__(self):
+        return self._split()
+
+    def add(self, span_type: SpanType):
+        """Add is an interactive data entry tool"""
+        print("Enter the lengths of the span. (blank line when finished).")
+        lengths: list[int] = []
+
+        while True:
+            try:
+                length = int(input(":"))
+                if length == 0:
+                    break
+                lengths.append(length)
+            except ValueError:
+                break
+
+        self.span_list.append(FiberSpan(span_type, *lengths))
+
+    @property
+    def details(self) -> str:
+        result: list[str] = []
+        for span in self.span_list:
+            result.append(str(span.span_type))
+            result.append(f"    {sum(span.lengths)}")
+        return "\n".join(result)
+
+    @property
+    def itemized(self) -> str:
+        result: list[str] = []
+        for span in self.span_list:
+            result.append(str(span.span_type))
+            for length in span.lengths:
+                result.append(f"    {length}")
+        return "\n".join(result)
+
+    def __str__(self) -> str:
+        return total_fibers(self.span_list, self.name)
+
+    def resize(self, new_total: int, should_print: bool = True) -> str | None:
+        result: list[str] = []
+        sub_list: SpanList = [
+            span
+            for span in self.span_list
+            if span.span_type
+            in (
+                SpanType.INSIDE,
+                SpanType.NEW_OL,
+                SpanType.NEW_UG,
+                SpanType.OL,
+                SpanType.UG,
+            )
+        ]
+        old_lengths: list[int] = [
+            length
+            for span in sub_list
+            for length in span.lengths
+            if span.span_type
+            not in (
+                SpanType.RISER,
+                # SpanType.SLACK,
+                SpanType.EXISTING_CAN,
+                SpanType.NEW_CAN,
+            )
+        ]
+
+        old_total = sum(old_lengths)
+        result.append(f"Old Total = {old_total}")
+        new_lengths = []
+        floored_lengths = []
+
+        for length in old_lengths:
+            new_lengths.append(new_total * length / old_total)
+            floored_lengths.append(round(new_total * length / old_total))
+
+        i = 1
+        for length in new_lengths:
+            result.append(f"length {i} = {length}")
+            i = i + 1
+
+        result.append(" -- ROUNDED -- ")
+
+        i = 1
+        for length in floored_lengths:
+            result.append(f"length {i} = {length}")
+            i = i + 1
+
+        for i in range(len(old_lengths)):
+            result.append(f"{old_lengths[i]} => {floored_lengths[i]}")
+
+        result.append(f"Total: {sum(floored_lengths)}")
+
+        if should_print:
+            print("\n".join(result))
+            return None
+        else:
+            return "\n".join(result)
+
+    def print_slack(self):
+        """This will simply walk through the span_list totaling footages and tell us where slack is needed"""
+        distance_to_slack: int = 0
+
+        print("===START SPAN===")
+        for span in self.span_list:
+            if span.span_type == SpanType.SLACK:
+                # reset slack and continue
+                distance_to_slack = 0
+                print(f"SLACK HERE: {sum(span.lengths)}")
+                continue
+            print(span.span_type)
+            for length in span.lengths:
+                distance_to_slack += length
+                if distance_to_slack >= MIN_SLACK:
+                    distance_to_slack = 0
+                    if distance_to_slack < SLACK_EVERY:
+                        print(f"    {length}")
+                        print("===ADD SLACK HERE===")
+                    else:
+                        print("===ADD SLACK HERE===")
+                        print(f"    {length}")
+                else:
+                    print(f"    {length}")
+        print("===END SPAN===")
+
+
+def total_fibers(
+    fibers: SpanList,
+    description: str = "Total Length",
+    included: Iterable[Filter] = (BASE_FILTER, OL_FILTER, UG_FILTER, UG_WITH_RISERS),
+):
+    totals: defaultdict[SpanType, int] = defaultdict(int)
+    filter_totals: defaultdict = defaultdict(int)
+    abs_total: int = 0
+    result: str = description + "\n"
+    for fiber in fibers:
+        totals[fiber.span_type] += sum(fiber.lengths)
+        abs_total += sum(fiber.lengths)
+        for filter in included:
+            if fiber.span_type in filter.data:
+                filter_totals[filter.name] += sum(fiber.lengths)
+
+    for k in totals:
+        result += f"\tTotal {k} = {totals[k]}\n"
+    for name in filter_totals:
+        result += f"\t{name} = {filter_totals[name]}\n"
+    result += f"\tTotal Absolute = {abs_total}\n"
+    return result
+
+
+def test():
+    def initial_test() -> FiberRun:
+        return FiberRun(
+            "Testing",
+            FiberSpan(
+                SpanType.OL,
+                300,
+                301,
+                302,
+                303,
+                304,
+                305,
+                306,
+                307,
+                308,
+                309,
+                310,
+                311,
+                312,
+                313,
+                314,
+                315,
+                316,
+                317,
+                318,
+                319,
+                320,
+            ),
+            FiberSpan(
+                SpanType.RISER,
+                25,
+            ),
+            FiberSpan(
+                SpanType.UG,
+                321,
+                322,
+                323,
+                324,
+                325,
+                326,
+                327,
+                328,
+                329,
+                330,
+                331,
+                332,
+                333,
+                334,
+                335,
+                336,
+                337,
+                338,
+                339,
+                340,
+            ),
+        )
+
+    test_run = initial_test()
+
+    print("==INITIAL CONTROL==")
+    print(test_run.details)
+
+    print("==RUNNING SPLIT TEST==")
+    i = 1
+    for run in test_run:
+        print(run.name)
+        print(run.itemized)
+        i += 1
+
+
+def main():
+    pass
+
+
+if __name__ == "__main__":
+    test()

@@ -1,0 +1,103 @@
+from dataclasses import dataclass, field
+from typing import Iterable, overload
+
+from .common import Serializable
+
+from .span import NamedSpan, Span
+from .filters import Filter
+from .ids import JobId
+
+
+@dataclass(frozen=True)
+class FiberRun(Serializable):
+    """A fiber run is an ordered sequence of NamedSpans belonging to a Job."""
+
+    job_id: JobId
+    spans: tuple[NamedSpan, ...] = field(default_factory=tuple)
+
+    # ---------- serialization ----------
+
+    def to_dict(self) -> dict:
+        return {
+            "job_id": self.job_id.value,
+            "spans": [span.to_dict() for span in self.spans],
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "FiberRun":
+        return cls(
+            job_id=JobId(data["job_id"]),
+            spans=tuple(NamedSpan.from_dict(s) for s in data["spans"]),
+        )
+
+    # ---------- core queries ----------
+
+    def total_length(self) -> int:
+        return sum(sum(seg.lengths) for span in self.spans for seg in span.spans)
+
+    def length_for_filter(self, flt: Filter) -> int:
+        return sum(
+            sum(seg.lengths)
+            for span in self.spans
+            for seg in span.spans
+            if isinstance(seg, flt.data)
+        )
+
+    def slack_length(self) -> int:
+        return sum(
+            sum(seg.lengths)
+            for span in self.spans
+            for seg in span.spans
+            if isinstance(seg, Span.SLACK)
+        )
+
+    def riser_length(self) -> int:
+        return sum(
+            sum(seg.lengths)
+            for span in self.spans
+            for seg in span.spans
+            if isinstance(seg, Span.RISER)
+        )
+
+    # ---------- transformation (immutably) ----------
+
+    @overload
+    def __add__(self, other: NamedSpan) -> FiberRun: ...
+
+    @overload
+    def __add__(self, other: Iterable[Span.MeasuredSpan]) -> FiberRun: ...
+
+    @overload
+    def __add__(self, other: Iterable[NamedSpan]) -> FiberRun: ...
+
+    def __add__(self, other):
+        # Case 1: A single NamedSpan
+        if isinstance(other, NamedSpan):
+            return FiberRun(
+                job_id=self.job_id,
+                spans=(*self.spans, other),
+            )
+
+        # Case 2: Iterable of NamedSpan
+        if isinstance(other, Iterable) and all(isinstance(v, NamedSpan) for v in other):
+            return FiberRun(
+                job_id=self.job_id,
+                spans=(*self.spans, *other),
+            )
+
+        # Case 3: Iterable of MeasuredSpan → append to last NamedSpan
+        if isinstance(other, Iterable) and all(
+            isinstance(v, Span.MeasuredSpan) for v in other
+        ):
+            if not self.spans:
+                raise ValueError("Cannot append measured spans to an empty FiberRun")
+
+            *prefix, last = self.spans
+            new_last = last + other
+
+            return FiberRun(
+                job_id=self.job_id,
+                spans=(*prefix, new_last),
+            )
+
+        raise TypeError(f"Unsupported operand type for +: {type(other)}")
