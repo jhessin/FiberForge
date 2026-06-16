@@ -1,53 +1,58 @@
 from __future__ import annotations
-from abc import ABC
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from enum import Enum, auto
-from typing import Iterable, Optional, Literal
+from enum import Enum
+from typing import Iterable, Optional, Literal, Union
 
 from .common import Serializable
 from .time_clock import TimeClock, TimeSpan
 from .ids import JobId, MuxId
 
-
-class JobType(Enum):
-    ASBUILT = auto()
-    DESIGN = auto()
-
-    class Region(ABC):
-        folder: str
-
-    class MWR(Region):
-        pass
-
-    class BSR(Region):
-        pass
-
-    class HOUSTON(Region):
-        pass
+# ---------------------------------------------------------------------------
+# Rust‑style Region Variants
+# ---------------------------------------------------------------------------
 
 
-def job_type_to_str(jt: JobType) -> str:
-    return jt.name
+@dataclass(frozen=True)
+class MWR(Serializable):
+    folder: str = "MWR"
 
 
-def job_type_from_str(name: str) -> JobType:
-    return JobType[name]
+@dataclass(frozen=True)
+class BSR(Serializable):
+    folder: str = "BSR"
 
 
-REGION_MAP = {
-    "MWR": JobType.MWR,
-    "BSR": JobType.BSR,
-    "HOUSTON": JobType.HOUSTON,
+@dataclass(frozen=True)
+class HOUSTON(Serializable):
+    folder: str = "HOUSTON"
+
+
+JobRegion = Union[MWR, BSR, HOUSTON]
+
+REGION_TYPES = {
+    "MWR": MWR,
+    "BSR": BSR,
+    "HOUSTON": HOUSTON,
 }
 
 
-def region_to_str(region: JobType.Region) -> str:
-    return region.__class__.__name__
+def region_to_str(region: JobRegion) -> str:
+    return region.folder
 
 
-def region_from_str(name: str) -> JobType.Region:
-    return REGION_MAP[name]
+def region_from_str(name: str) -> JobRegion:
+    return REGION_TYPES[name]()
+
+
+# ---------------------------------------------------------------------------
+# Job Type (simple enum for now)
+# ---------------------------------------------------------------------------
+
+
+class JobType(Enum):
+    ASBUILT = "ASBUILT"
+    DESIGN = "DESIGN"
 
 
 # ---------------------------------------------------------------------------
@@ -62,7 +67,7 @@ class JobMeta(Serializable):
     job_type: JobType
     task_name: str
     company_name: str
-    region: JobType.Region
+    region: JobRegion
     address: str
     lat: str
     long: str
@@ -78,7 +83,7 @@ class JobMeta(Serializable):
         return {
             "job_name": self.job_name,
             "details": self.details,
-            "job_type": job_type_to_str(self.job_type),
+            "job_type": self.job_type.value,
             "task_name": self.task_name,
             "company_name": self.company_name,
             "region": region_to_str(self.region),
@@ -95,7 +100,7 @@ class JobMeta(Serializable):
         return cls(
             job_name=data["job_name"],
             details=data["details"],
-            job_type=job_type_from_str(data["job_type"]),
+            job_type=JobType(data["job_type"]),
             task_name=data["task_name"],
             company_name=data["company_name"],
             region=region_from_str(data["region"]),
@@ -107,12 +112,18 @@ class JobMeta(Serializable):
             notes=data.get("notes", "No Notes"),
         )
 
+    # -------------------------
+    # Validation
+    # -------------------------
+
     def validate_clli(self) -> list[str]:
         errors: list[str] = []
 
-        if self.job_type == "Asbuilt" and self.region in ("HOUSTON", "MWR"):
-            if not self.clli:
-                errors.append("clli is required for HOUSTON/MWR Asbuilts")
+        # Rust‑style pattern matching
+        match self.region:
+            case HOUSTON() | MWR():
+                if self.job_type == JobType.ASBUILT and not self.clli:
+                    errors.append("CLLI is required for HOUSTON/MWR Asbuilts")
 
         return errors
 
@@ -129,10 +140,6 @@ class CfatSpec(Serializable):
     bandwidth: Literal[1, 10, 100]
     preterm: str
     ext_id: str
-
-    # -------------------------
-    # Serialization
-    # -------------------------
 
     def to_dict(self) -> dict:
         return {
@@ -155,8 +162,10 @@ class CfatSpec(Serializable):
 
     @staticmethod
     def is_needed(meta: JobMeta) -> list[str]:
-        if meta.job_type == "Design" and meta.region in ("HOUSTON", "MWR"):
-            return ["CFAT is required for MWR/HOUSTON"]
+        match meta.region:
+            case HOUSTON() | MWR():
+                if meta.job_type == JobType.DESIGN:
+                    return ["CFAT is required for MWR/HOUSTON Design jobs"]
         return []
 
 
@@ -175,10 +184,6 @@ class NetworkSpec(Serializable):
     runs_only: bool = False
     removing: Iterable[str] | str = field(default_factory=tuple)
     lunch_time: Optional[timedelta] = None
-
-    # -------------------------
-    # Serialization
-    # -------------------------
 
     def to_dict(self) -> dict:
         return {
@@ -276,7 +281,7 @@ class Job(Serializable):
 
     @property
     def summary(self) -> str:
-        return f"{self.id} | {self.meta.job_type or 'Unknown'} | {self.meta.region or '??'}"
+        return f"{self.id} | {self.meta.job_type.value} | {self.meta.region.folder}"
 
     def validate(self) -> list[str]:
         errors: list[str] = []
