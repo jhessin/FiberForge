@@ -3,7 +3,7 @@ from typing import Optional
 from pathlib import Path
 
 from textual import log
-from textual.app import App, ComposeResult
+from textual.app import App as SuperApp, ComposeResult
 from textual.widgets import Header, Footer
 from textual.containers import Horizontal
 
@@ -15,7 +15,7 @@ from fiberforge.models import FiberRun, JobId, Job
 from .views import RunList, RunDetails, JobList, JobDetails
 
 
-class FiberApp(App):
+class App(SuperApp):
     CSS_PATH = "style.tcss"
 
     BINDINGS = [
@@ -38,9 +38,9 @@ class FiberApp(App):
     def compose(self) -> ComposeResult:
         yield Header()
         with Horizontal():
-            yield JobList(self.jobs, id="job-list")
-            yield RunList(self.runs, id="run-list")
-            yield RunDetails(id="run-details")
+            yield JobList(self.jobs)
+            yield RunList(self.runs)
+            yield RunDetails()
         yield Footer()
 
     def on_mount(self) -> None:
@@ -60,5 +60,5 @@ class FiberApp(App):
         details.update_run(event.run)
 
 
-def app() -> FiberApp:
-    return FiberApp()
+def app() -> App:
+    return App()

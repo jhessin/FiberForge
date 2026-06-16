@@ -6,7 +6,7 @@ close=1
 [run:debug]
 cwd=$(VIM_ROOT)
 
-command=poetry run textual run --dev fiberforge.app.main:FiberApp
+command=poetry run textual run --dev fiberforge.app.main
 
 output=terminal
 pos=external

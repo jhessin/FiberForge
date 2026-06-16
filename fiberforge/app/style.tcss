@@ -1,9 +1,16 @@
-#run-list {
-    width: 30%;
-    border: solid green;
+JobList {
+  width: 1fr;
+  border: solid green;
 }
 
-#run-details {
-    padding: 2;
-    border: solid blue;
+RunList {
+  width: 1fr;
+  border: solid blue;
+}
+
+RunDetails {
+  width: 2fr;
+  height: 100%;
+  padding: 2;
+  border: solid aqua;
 }
