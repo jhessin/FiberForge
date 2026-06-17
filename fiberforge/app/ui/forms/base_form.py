@@ -6,7 +6,7 @@ from typing import Any, List, Optional
 
 import pyperclip
 from textual import events
-from textual.screen import Screen
+from textual.screen import ModalScreen
 from textual.widget import Widget
 from textual.widgets import Static, Input
 from textual.containers import Vertical
@@ -67,7 +67,7 @@ class FormField(Static):
         self.refresh()  # Re-render the label
 
 
-class FormScreen(Screen):
+class FormScreen(ModalScreen):
     """
     Generic vim-style form:
 
@@ -117,11 +117,14 @@ class FormScreen(Screen):
 
     def compose(self):
         container = Vertical(id="form")
-        self._fields = self.build_fields()
-        for field in self._fields:
-            container.mount(field)
         yield container
         yield Static("", id="status")
+
+    def on_mount(self):
+        self._fields = self.build_fields()
+        container = self.query_one(Vertical)
+        for field in self._fields:
+            container.mount(field)
 
     @property
     def status(self) -> Static:

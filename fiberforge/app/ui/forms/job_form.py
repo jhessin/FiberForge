@@ -2,27 +2,22 @@
 
 from __future__ import annotations
 
+from textual.screen import ModalScreen
 from textual.widgets import Select
 from textual.binding import Binding
-from textual.message import Message
 
-from fiberforge.models.job import (
+from fiberforge.models import (
     Job,
     JobId,
     JobMeta,
     JobType,
     region_from_str,
+    NetworkSpec,
 )
-from fiberforge.models import NetworkSpec
 from .base_form import FormScreen, FormField
 
 
-class JobFormScreen(FormScreen):
-
-    class JobSaved(Message):
-        def __init__(self, job: Job):
-            super().__init__()
-            self.job = job
+class JobFormScreen(FormScreen, ModalScreen[Job]):
 
     BINDINGS = FormScreen.BINDINGS + [
         Binding("s", "save", "Save"),
@@ -63,7 +58,6 @@ class JobFormScreen(FormScreen):
         data = self.collect_data()
 
         meta = JobMeta(
-            job_name=data["job_name"],
             details=data["details"],
             job_type=JobType(data["job_type"]),
             task_name=data["task_name"],
@@ -81,5 +75,4 @@ class JobFormScreen(FormScreen):
             network=NetworkSpec(),
         )
 
-        self.post_message(JobFormScreen.JobSaved(job))
-        self.app.pop_screen()
+        self.dismiss(job)

@@ -1,9 +1,11 @@
 from dataclasses import dataclass
+from textual import work
 from textual.widgets import ListView, ListItem, Label
 from textual.message import Message
 from textual.binding import Binding
 
 from fiberforge.models import Job, JobId
+from ..ui.forms.job_form import JobFormScreen
 
 
 class JobItem(ListItem):
@@ -58,8 +60,10 @@ class JobList(ListView):
         job = self.jobs[index]
         self.post_message(self.JobSelected(job))
 
-    def action_new_job(self) -> None:
+    @work
+    async def action_new_job(self) -> None:
         """Open the new job screen"""
         # Let the app decide what "new job" means
         # e.g. push a JobForm screen
-        # self.app.post_message(self.JobSelected(job=None))  # or a custom NewJob message
+        job: Job = await self.app.push_screen_wait(JobFormScreen())
+        self.jobs.append(job)
