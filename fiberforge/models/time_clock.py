@@ -1,7 +1,9 @@
 # fiberforge/jobs/time_clock.py
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from typing import Optional, Self, overload, Any
+from typing import Optional, overload
+
+from fiberforge.models.ids import JobId
 
 from .common import Serializable
 
@@ -12,6 +14,7 @@ from .common import Serializable
 
 @dataclass(frozen=True)
 class TimeSpan:
+    job_id: JobId
     start: datetime
     end: Optional[datetime]
 
@@ -20,6 +23,9 @@ class TimeSpan:
             raise ValueError("Your time span cannot be negative.")
         elif self.as_timedelta < -timedelta(minutes=15):
             raise ValueError("Your start time is too far in the future.")
+
+    def __lt__(self, other: "TimeSpan") -> bool:
+        return self.start < other.start
 
     @property
     def as_timedelta(self) -> timedelta:
@@ -33,17 +39,18 @@ class TimeSpan:
         return bool(self.end)
 
     def update_start(self, start: datetime) -> "TimeSpan":
-        return TimeSpan(start, self.end)
+        return TimeSpan(job_id=self.job_id, start=start, end=self.end)
 
     def update_end(self, end: datetime) -> "TimeSpan":
-        return TimeSpan(self.start, end)
+        return TimeSpan(job_id=self.job_id, start=self.start, end=end)
 
 
 @dataclass(frozen=True)
 class TimeClock(Serializable):
-    time_spans: tuple[TimeSpan, ...] = ()
+    time_spans: tuple[TimeSpan, ...]
 
     def __post_init__(self):
+        object.__setattr__(self, "time_spans", tuple(sorted(self.time_spans)))
         incomplete_time_spans: list[TimeSpan] = [
             t for t in self.time_spans if not t.is_completed
         ]
@@ -103,6 +110,7 @@ class TimeClock(Serializable):
         return {
             "time_spans": [
                 {
+                    "job_id": span.job_id,
                     "start": span.start.isoformat(),
                     "end": span.end.isoformat() if span.end else None,
                 }
@@ -114,7 +122,8 @@ class TimeClock(Serializable):
     def from_dict(cls, data: dict) -> "TimeClock":
         spans = []
         for s in data["time_spans"]:
+            job_id = s["job_id"]
             start = datetime.fromisoformat(s["start"])
             end = datetime.fromisoformat(s["end"]) if s["end"] else None
-            spans.append(TimeSpan(start=start, end=end))
+            spans.append(TimeSpan(job_id=job_id, start=start, end=end))
         return TimeClock(tuple(spans))

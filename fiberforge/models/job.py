@@ -6,7 +6,7 @@ from typing import Iterable, Optional, Literal, Union
 
 from .common import Serializable
 from .time_clock import TimeClock, TimeSpan
-from .ids import JobId, MuxId
+from .ids import CanId, JobId, MuxId
 
 # ---------------------------------------------------------------------------
 # Rust‑style Region Variants
@@ -56,13 +56,24 @@ class JobType(Enum):
 
 
 # ---------------------------------------------------------------------------
+# Job Phase (simple enum for now)
+# ---------------------------------------------------------------------------
+
+
+class JobPhase(Enum):
+    CREATED = "CREATED"
+    PREPARED = "PREPARED"
+    PLANNING = "PLANNING"
+    COMPLETED = "COMPLETED"
+
+
+# ---------------------------------------------------------------------------
 # Job Metadata
 # ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
 class JobMeta(Serializable):
-    job_name: str
     details: str
     job_type: JobType
     task_name: str
@@ -81,7 +92,6 @@ class JobMeta(Serializable):
 
     def to_dict(self) -> dict:
         return {
-            "job_name": self.job_name,
             "details": self.details,
             "job_type": self.job_type.value,
             "task_name": self.task_name,
@@ -98,7 +108,6 @@ class JobMeta(Serializable):
     @classmethod
     def from_dict(cls, data: dict) -> "JobMeta":
         return cls(
-            job_name=data["job_name"],
             details=data["details"],
             job_type=JobType(data["job_type"]),
             task_name=data["task_name"],
@@ -180,8 +189,7 @@ class NetworkSpec(Serializable):
     segment: Optional[str] = None
     hubs: Iterable[str] | str = field(default_factory=tuple)
     endsites: Iterable[str] | str = field(default_factory=tuple)
-    cans_involved: Iterable[str] | str = field(default_factory=tuple)
-    runs_only: bool = False
+    cans_involved: Iterable[CanId] | CanId = field(default_factory=tuple)
     removing: Iterable[str] | str = field(default_factory=tuple)
     lunch_time: Optional[timedelta] = None
 
@@ -191,8 +199,11 @@ class NetworkSpec(Serializable):
             "segment": self.segment,
             "hubs": list(self.hubs),
             "endsites": list(self.endsites),
-            "cans_involved": list(self.cans_involved),
-            "runs_only": self.runs_only,
+            "cans_involved": (
+                list(self.cans_involved)
+                if isinstance(self.cans_involved, Iterable)
+                else []
+            ),
             "removing": list(self.removing),
             "lunch_time": self.lunch_time.total_seconds() if self.lunch_time else None,
         }
@@ -205,7 +216,6 @@ class NetworkSpec(Serializable):
             hubs=data["hubs"],
             endsites=data["endsites"],
             cans_involved=data["cans_involved"],
-            runs_only=data.get("runs_only", False),
             removing=data.get("removing", []),
             lunch_time=(
                 timedelta(seconds=data["lunch_time"])
@@ -218,7 +228,7 @@ class NetworkSpec(Serializable):
 
     def normalize(self) -> None:
         def to_tuple(v):
-            if isinstance(v, str):
+            if isinstance(v, (str, CanId)):
                 return (v,)
             return tuple(v)
 
@@ -237,18 +247,17 @@ class NetworkSpec(Serializable):
 @dataclass
 class Job(Serializable):
     id: JobId
-    meta: JobMeta
-    network: NetworkSpec
+    meta: Optional[JobMeta] = None
+    network: Optional[NetworkSpec] = None
     cfat: Optional[CfatSpec] = None
-    timeclock: TimeClock = field(default_factory=TimeClock)
 
     # -------------------------
     # TimeClock Operations
     # -------------------------
 
-    def clock_in(self, when: Optional[datetime] = None) -> None:
+    def clock_in(self, job_id: JobId, when: Optional[datetime] = None) -> None:
         when = when or datetime.now()
-        new_span = TimeSpan(start=when, end=None)
+        new_span = TimeSpan(job_id=job_id, start=when, end=None)
         self.timeclock = self.timeclock + new_span
 
     def clock_out(self, when: Optional[datetime] = None) -> None:
@@ -277,17 +286,13 @@ class Job(Serializable):
 
     @property
     def label(self) -> str:
-        return f"{self.id} — {self.meta.job_name or 'Unnamed Job'}"
-
-    @property
-    def summary(self) -> str:
-        return f"{self.id} | {self.meta.job_type.value} | {self.meta.region.folder}"
+        return f"{self.id} — {self.meta.company_name if self.meta else 'Unnamed Job'}"
 
     def validate(self) -> list[str]:
         errors: list[str] = []
-        errors += self.meta.validate_clli()
+        errors += self.meta.validate_clli() if self.meta else []
         if not self.cfat:
-            errors += CfatSpec.is_needed(self.meta)
+            errors += CfatSpec.is_needed(self.meta) if self.meta else []
         return errors
 
     # -------------------------
@@ -297,22 +302,28 @@ class Job(Serializable):
     def to_dict(self) -> dict:
         return {
             "id": self.id.value,
-            "meta": self.meta.to_dict(),
-            "network": self.network.to_dict(),
+            "meta": self.meta.to_dict() if self.meta else None,
+            "network": self.network.to_dict() if self.network else None,
             "cfat": self.cfat.to_dict() if self.cfat else None,
-            "timeclock": self.timeclock.to_dict(),
         }
 
     @classmethod
     def from_dict(cls, data: dict) -> "Job":
         return cls(
             id=JobId(data["id"]),
-            meta=JobMeta.from_dict(data["meta"]),
-            network=NetworkSpec.from_dict(data["network"]),
+            meta=(
+                JobMeta.from_dict(data["meta"])
+                if data.get("meta") is not None
+                else None
+            ),
+            network=(
+                NetworkSpec.from_dict(data["network"])
+                if data.get("network") is not None
+                else None
+            ),
             cfat=(
                 CfatSpec.from_dict(data["cfat"])
                 if data.get("cfat") is not None
                 else None
             ),
-            timeclock=TimeClock.from_dict(data["timeclock"]),
         )
