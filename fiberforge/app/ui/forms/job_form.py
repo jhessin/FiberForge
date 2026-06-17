@@ -3,76 +3,61 @@
 from __future__ import annotations
 
 from textual.screen import ModalScreen
-from textual.widgets import Select
-from textual.binding import Binding
+from textual.widgets import Button, Select
 
 from fiberforge.models import (
     Job,
-    JobId,
-    JobMeta,
-    JobType,
-    region_from_str,
-    NetworkSpec,
 )
-from .base_form import FormScreen, FormField
+from .custom_fields import InputField
 
 
-class JobFormScreen(FormScreen, ModalScreen[Job]):
+class JobFormScreen(ModalScreen[Job]):
 
-    BINDINGS = FormScreen.BINDINGS + [
-        Binding("s", "save", "Save"),
-    ]
-
-    def build_fields(self):
+    def compose(self):
         return [
-            FormField("Job ID", name="id", required=True),
-            FormField("Job Name", name="job_name", required=True),
-            FormField("Details", name="details"),
-            FormField("Task Name", name="task_name", required=True),
-            FormField("Company", name="company_name", required=True),
-            FormField("Address", name="address", required=True),
-            FormField("Latitude", name="lat"),
-            FormField("Longitude", name="long"),
-            FormField("CLLI", name="clli"),
+            InputField("Job ID", name="id", required=True),
+            InputField("Job Name", name="job_name", required=True),
+            InputField("Details", name="details"),
+            InputField("Task Name", name="task_name", required=True),
+            InputField("Company", name="company_name", required=True),
+            InputField("Address", name="address", required=True),
+            InputField("Latitude", name="lat"),
+            InputField("Longitude", name="long"),
+            InputField("CLLI", name="clli"),
             # Select widgets
-            FormField(
-                "Region",
+            Select(
                 name="region",
-                required=True,
-                input_widget=Select(
-                    options=[("MWR", "MWR"), ("BSR", "BSR"), ("HOUSTON", "HOUSTON")]
-                ),
+                options=[("MWR", "MWR"), ("BSR", "BSR"), ("HOUSTON", "HOUSTON")],
             ),
-            FormField(
-                "Job Type",
+            Select(
                 name="job_type",
-                required=True,
-                input_widget=Select(
-                    options=[("ASBUILT", "ASBUILT"), ("DESIGN", "DESIGN")]
-                ),
+                options=[("ASBUILT", "ASBUILT"), ("DESIGN", "DESIGN")],
             ),
+            Button("Save", action="save"),
         ]
 
     def action_save(self):
-
-        data = self.collect_data()
-
-        meta = JobMeta(
-            details=data["details"],
-            job_type=JobType(data["job_type"]),
-            task_name=data["task_name"],
-            company_name=data["company_name"],
-            region=region_from_str(data["region"]),
-            address=data["address"],
-            lat=data["lat"],
-            long=data["long"],
-            clli=data["clli"],
-        )
-
-        job = Job(
-            id=JobId(data["id"]),
-            meta=meta,
-            network=NetworkSpec(),
-        )
-
-        self.dismiss(job)
+        pass
+        #
+        # data = self.collect_data()
+        #
+        # meta = JobMeta(
+        #     details=data["details"],
+        #     job_type=JobType(data["job_type"]),
+        #     task_name=data["task_name"],
+        #     company_name=data["company_name"],
+        #     region=region_from_str(data["region"]),
+        #     address=data["address"],
+        #     lat=data["lat"],
+        #     long=data["long"],
+        #     clli=data["clli"],
+        # )
+        #
+        # job = Job(
+        #     id=JobId(data["id"]),
+        #     meta=meta,
+        #     network=NetworkSpec(),
+        # )
+        #
+        # self.dismiss(job)
+        self.app.pop_screen()
