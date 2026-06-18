@@ -1,6 +1,7 @@
 [console]
 cwd=$(VIM_ROOT)
 command=textual console
+output=terminal
 close=1
 
 [run:debug]
