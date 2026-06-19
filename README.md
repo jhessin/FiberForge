@@ -37,8 +37,8 @@ network data.
 
 ## Installation
 
-FiberForge uses [Poetry](https://python-poetry.org/) for dependency management.
+FiberForge uses [uv](https://docs.astral.sh/uv/) for dependency management.
 
 ```bash
-poetry install
+uv run fiberforge
 ```

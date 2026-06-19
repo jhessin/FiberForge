@@ -1,0 +1,64 @@
+# fiberforge/app/app.py
+from typing import Optional
+from pathlib import Path
+
+from textual import log
+from textual.app import App as SuperApp, ComposeResult
+from textual.widgets import Header, Footer
+from textual.containers import Horizontal
+
+import fiberforge
+
+from fiberforge.persistence.json_repo import JsonRepository
+from fiberforge.models import FiberRun, JobId, Job
+
+from .views import RunList, RunDetails, JobList, JobDetails
+
+
+class App(SuperApp):
+    CSS_PATH = "style.tcss"
+
+    BINDINGS = [
+        ("q", "quit", "Quit"),
+    ]
+
+    def __init__(self):
+        super().__init__()
+        DATA_DIR = Path(fiberforge.__file__).parent / "data"
+        self.repo = JsonRepository(DATA_DIR)
+
+        self.jobs: dict[JobId, Job] = self.repo.load_jobs()
+        self.spans = self.repo.load_spans()
+        self.cans = self.repo.load_cans()
+        self.runs = self.repo.load_runs()
+
+        self.selected_job: Optional[Job] = None
+        self.selected_run: Optional[FiberRun] = None
+
+    def compose(self) -> ComposeResult:
+        yield Header()
+        with Horizontal():
+            yield JobList(self.jobs)
+            yield RunList(self.runs)
+            yield RunDetails()
+        yield Footer()
+
+    def on_mount(self) -> None:
+        self.query_one(JobList).focus()
+
+    # Job selection -> update the job detials (and later, filter runs)
+    def on_job_list_job_selected(self, event: JobList.JobSelected) -> None:
+        log("JOB SELECTED")
+        self.selected_job = event.job
+        details = self.query_one(JobDetails)
+        details.update_job(event.job)
+
+    def on_run_list_run_selected(self, event: RunList.RunSelected) -> None:
+        """Update details panel when a run is selected."""
+        log("RUN SELECTED")
+        details = self.query_one(RunDetails)
+        details.update_run(event.run)
+
+
+def app() -> App:
+    return App()

@@ -285,7 +285,7 @@ wheels = [
 [[package]]
 name = "fiberforge"
 version = "0.0.0.dev1"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "msgpack" },
     { name = "orjson" },
