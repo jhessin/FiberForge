@@ -1,6 +1,6 @@
 [project]
 name = "fiberforge"
-version = "0.1.0"
+version = "0.0.0.dev1"
 description = "A domain-driven fiber network modeling and TUI application."
 readme = "README.md"
 license-files = ["LICENSE"]
