@@ -1,10 +1,10 @@
 from datetime import datetime
 from abc import ABC
-from dataclasses import dataclass, asdict
-from typing import Any, Type, TypeVar, cast
+from dataclasses import dataclass
+from typing import Any, Type, TypeVar
 from enum import Enum, auto
 
-import msgpack
+import dill
 
 from .ids import DeviceId
 
@@ -34,20 +34,13 @@ def decode_datetime_hook(obj: dict[Any, Any]) -> Any:
 class Serializable(ABC):
 
     def to_binary(self) -> bytes:
-        """Serializes the dataclass fields to a MessagePack binary BLOB."""
-        data_dict: SerializedPayload = asdict(self)
-        # Use default= hook to catch custom types like datetime
-        return msgpack.packb(data_dict, default=encode_datetime_hook)
+        """Serializes the dataclass fields to a dill binary BLOB."""
+        return dill.dumps(self)
 
     @classmethod
     def from_binary(cls: Type[T], binary_blob: bytes) -> T:
         """Constructs a fresh immutable instance from a binary BLOB."""
-        # Use object_hook to intercept fields and convert them back into datetime
-        unpacked_data = cast(
-            SerializedPayload,
-            msgpack.unpackb(binary_blob, object_hook=decode_datetime_hook),
-        )
-        return cls(**unpacked_data)
+        return dill.loads(binary_blob)
 
 
 @dataclass(frozen=True)

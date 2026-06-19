@@ -1,8 +1,8 @@
 import sqlite3
 from pathlib import Path
+from typing import Optional
 
-from fiberforge.models.ids import JobId
-from fiberforge.models.job import Job
+from fiberforge.models import Job, JobId
 
 
 # 3. Typed Database Operations Manager
@@ -33,9 +33,20 @@ class Store:
         self.conn.executescript(schema.read_text())
         self.conn.commit()
 
-    def load_jobs(self) -> dict[JobId, Job]:
+    def load_jobs(self) -> list[JobId]:
         # TODO: This should load all jobs.
-        return {}
+        self.cursor.execute("SELECT id FROM Jobs")
+        result: list[tuple[str, ...]] = self.cursor.fetchall()
+        if result:
+            return [JobId(id) for id_tuple in result for id in id_tuple]
+        return []
+
+    def get_job_by_id(self, job_id: str) -> Optional[Job]:
+        self.cursor.execute("SELECT data FROM Jobs WHERE id = ?", (job_id,))
+        row: Optional[tuple[bytes]] = self.cursor.fetchone()
+        if row is None:
+            return None
+        return Job.from_binary(row[0])
 
     # def get_by_id(self, config_id: int) -> Optional[Address]:
     #     self.cursor.execute("SELECT data FROM configs WHERE id = ?", (config_id,))
@@ -56,7 +67,17 @@ class Store:
     #     rows: List[tuple[bytes]] = self.cursor.fetchall()
     #
     #     return [AppConfig.from_binary(row[0]) for row in rows]
-    #
+
+    def save_job(self, job: Job) -> None:
+        binary_blob: bytes = job.to_binary()
+        self.cursor.execute(
+            """
+        INSERT OR REPLACE INTO Jobs (id, data) VALUES (?, ?)
+        """,
+            (job.id.value, binary_blob),
+        )
+        self.conn.commit()
+
     # def save_or_update(self, config: Address) -> None:
     #     binary_blob: bytes = config.to_binary()
     #

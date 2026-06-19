@@ -13,6 +13,9 @@ from fiberforge.models import Job
 from fiberforge.models.ids import JobId
 from fiberforge.persistence.sqlite_repo import Store
 
+dirs = PlatformDirs("FiberForge", "GrillbrickStudios")
+data_dir = dirs.user_data_path
+
 
 class JobItem(ListItem):
 
@@ -28,28 +31,30 @@ class EmptyJobItem(ListItem):
     can_focus = False
 
     def __init__(self):
-        super().__init__(Label("No jobs found.\nPress N to create your first Job."))
+        super().__init__(Label("No jobs found.\nPress O to create your first Job."))
 
 
 class JobList(CommonList):
     BINDINGS = [
-        ("n", "new_job", "Create a new job"),
+        ("o", "new_job", "Create a new job"),
     ]
 
     def on_mount(self) -> None:
-        dirs = PlatformDirs("FiberForge", "GrillbrickStudios")
-        data_dir = dirs.user_data_path
-        repo = Store(data_dir)
-        db: dict[JobId, Job] = repo.load_jobs()
+        repo: Store = Store(data_dir)
+        db: list[JobId] = repo.load_jobs()
         if not db:
             # Empty State
             self.append(EmptyJobItem())
             self.has_empty = True
         else:
-            for _, job in db.items():
-                item = JobItem(job)
-                item.can_focus = True
-                self.append(item)
+            self.has_empty = False
+            for job_id in db:
+                job = repo.get_job_by_id(job_id.value)
+                if job:
+                    item = JobItem(job)
+                    item.can_focus = True
+                    self.append(item)
+        repo.close()
 
     @work
     async def action_new_job(self):
@@ -57,6 +62,8 @@ class JobList(CommonList):
         log("JobScreen was dismissed.")
         if job:
             log(f"New Job created {job}")
+            repo: Store = Store(data_dir)
+            repo.save_job(job)
             if self.has_empty:
                 await self.clear()
                 self.has_empty = False
