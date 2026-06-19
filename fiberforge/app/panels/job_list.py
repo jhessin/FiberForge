@@ -11,7 +11,7 @@ from .list_common import CommonList
 
 from fiberforge.models import Job
 from fiberforge.models.ids import JobId
-from fiberforge.persistence.json_repo import JsonRepository
+from fiberforge.persistence.sqlite_repo import Store
 
 
 class JobItem(ListItem):
@@ -39,7 +39,7 @@ class JobList(CommonList):
     def on_mount(self) -> None:
         dirs = PlatformDirs("FiberForge", "GrillbrickStudios")
         data_dir = dirs.user_data_path
-        repo = JsonRepository(data_dir)
+        repo = Store(data_dir)
         db: dict[JobId, Job] = repo.load_jobs()
         if not db:
             # Empty State

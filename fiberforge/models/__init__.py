@@ -1,5 +1,5 @@
-from .can import *
 from .common import *
+from .devices import *
 from .fiber_run import *
 from .filters import *
 from .ids import *

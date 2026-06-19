@@ -3,7 +3,7 @@ from typing import Iterable, overload
 
 from .common import Serializable
 
-from .span import NamedSpan, Span
+from .span import NamedSpan, MeasuredSpan, Span
 from .filters import Filter
 from .ids import JobId
 
@@ -13,22 +13,8 @@ class FiberRun(Serializable):
     """A fiber run is an ordered sequence of NamedSpans belonging to a Job."""
 
     job_id: JobId
+    id: int  # An integer representing the order the run should be listed for the job
     spans: tuple[NamedSpan, ...] = field(default_factory=tuple)
-
-    # ---------- serialization ----------
-
-    def to_dict(self) -> dict:
-        return {
-            "job_id": self.job_id.value,
-            "spans": [span.to_dict() for span in self.spans],
-        }
-
-    @classmethod
-    def from_dict(cls, data: dict) -> "FiberRun":
-        return cls(
-            job_id=JobId(data["job_id"]),
-            spans=tuple(NamedSpan.from_dict(s) for s in data["spans"]),
-        )
 
     # ---------- core queries ----------
 
@@ -65,7 +51,7 @@ class FiberRun(Serializable):
     def __add__(self, other: NamedSpan) -> "FiberRun": ...
 
     @overload
-    def __add__(self, other: Iterable[Span.MeasuredSpan]) -> "FiberRun": ...
+    def __add__(self, other: Iterable[MeasuredSpan]) -> "FiberRun": ...
 
     @overload
     def __add__(self, other: Iterable[NamedSpan]) -> "FiberRun": ...
@@ -74,6 +60,7 @@ class FiberRun(Serializable):
         # Case 1: A single NamedSpan
         if isinstance(other, NamedSpan):
             return FiberRun(
+                id=self.id,
                 job_id=self.job_id,
                 spans=(*self.spans, other),
             )
@@ -81,13 +68,14 @@ class FiberRun(Serializable):
         # Case 2: Iterable of NamedSpan
         if isinstance(other, Iterable) and all(isinstance(v, NamedSpan) for v in other):
             return FiberRun(
+                id=self.id,
                 job_id=self.job_id,
                 spans=(*self.spans, *other),
             )
 
         # Case 3: Iterable of MeasuredSpan → append to last NamedSpan
         if isinstance(other, Iterable) and all(
-            isinstance(v, Span.MeasuredSpan) for v in other
+            isinstance(v, MeasuredSpan) for v in other
         ):
             if not self.spans:
                 raise ValueError("Cannot append measured spans to an empty FiberRun")
@@ -96,6 +84,7 @@ class FiberRun(Serializable):
             new_last = last + other
 
             return FiberRun(
+                id=self.id,
                 job_id=self.job_id,
                 spans=(*prefix, new_last),
             )

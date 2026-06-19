@@ -4,6 +4,13 @@ command=textual console
 output=terminal
 close=1
 
+[test]
+cwd=<root>
+
+command=poetry run ipython
+output=terminal
+save=1
+
 [run:debug]
 cwd=$(VIM_ROOT)
 

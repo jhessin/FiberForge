@@ -62,6 +62,8 @@ class TimeClock(Serializable):
         ):
             raise ValueError("Only your last time span can be incomplete")
 
+        # TODO: Ensure that none of the times overlap.
+
     @property
     def total_time(self) -> timedelta:
         total: timedelta = timedelta()
@@ -93,37 +95,3 @@ class TimeClock(Serializable):
             return TimeClock(self.time_spans + (other,))
         else:
             return TimeClock(self.time_spans + other.time_spans)
-
-    @overload
-    def __radd__(self, other: "TimeClock") -> "TimeClock": ...
-
-    @overload
-    def __radd__(self, other: TimeSpan) -> "TimeClock": ...
-
-    def __radd__(self, other):
-        if isinstance(other, TimeSpan):
-            return TimeClock((other,) + self.time_spans)
-        else:
-            return TimeClock(other.time_spans + self.time_spans)
-
-    def to_dict(self) -> dict:
-        return {
-            "time_spans": [
-                {
-                    "job_id": span.job_id,
-                    "start": span.start.isoformat(),
-                    "end": span.end.isoformat() if span.end else None,
-                }
-                for span in self.time_spans
-            ]
-        }
-
-    @classmethod
-    def from_dict(cls, data: dict) -> "TimeClock":
-        spans = []
-        for s in data["time_spans"]:
-            job_id = s["job_id"]
-            start = datetime.fromisoformat(s["start"])
-            end = datetime.fromisoformat(s["end"]) if s["end"] else None
-            spans.append(TimeSpan(job_id=job_id, start=start, end=end))
-        return TimeClock(tuple(spans))

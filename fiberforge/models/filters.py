@@ -1,8 +1,8 @@
 # filters.py
 from dataclasses import dataclass
-from typing import Any, TypeVar
+from typing import TypeVar
 
-from .span import Span
+from .span import Span, MeasuredSpan
 from .common import Serializable
 
 T = TypeVar("T", bound="Filter")
@@ -13,21 +13,7 @@ class Filter(Serializable):
     """A filter can be used to sort out MeasuredSpan lengths"""
 
     name: str
-    data: tuple[type[Span.MeasuredSpan], ...]
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "name": self.name,
-            "data": [cls.__name__ for cls in self.data],
-        }
-
-    @classmethod
-    def from_dict(cls: type[T], data: dict[str, Any]) -> T:
-        span_types = tuple(getattr(Span, t) for t in data["data"])
-        return cls(
-            name=data["name"],
-            data=span_types,
-        )
+    data: tuple[type[MeasuredSpan], ...]
 
 
 BASE_FILTER = Filter(
