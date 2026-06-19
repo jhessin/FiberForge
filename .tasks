@@ -7,14 +7,14 @@ close=1
 [test]
 cwd=<root>
 
-command=poetry run ipython
+command=uv run ipython
 output=terminal
 save=1
 
 [run:debug]
 cwd=$(VIM_ROOT)
 
-command=poetry run textual run --dev fiberforge.app.main
+command=uv run textual run --dev fiberforge.app.main
 
 output=terminal
 pos=external
@@ -26,9 +26,7 @@ save=1
 # Run from the project root so packages like py_tools import cleanly
 cwd=$(VIM_ROOT)
 
-# If <root>\.venv\Scripts\python.exe exists, use it; otherwise use plain `python`
-# command=$(VIM_ROOT)\py_tools\venv\Scripts\textual.exe serve app.py
-command=poetry run textual run fiberforge
+command=uv run textual run fiberforge
 
 output=terminal
 pos=external
