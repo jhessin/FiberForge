@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Iterable, Optional, Literal, Union
+from typing import Iterable, Optional, Literal
 
 from .common import Serializable
 from .ids import DeviceId, JobId, MuxId, SpanId
@@ -12,27 +12,19 @@ from .ids import DeviceId, JobId, MuxId, SpanId
 
 
 @dataclass(frozen=True)
-class MWR(Serializable):
-    folder: str = "MWR"
+class JobRegion(Serializable):
 
+    @dataclass(frozen=True)
+    class MWR(Serializable):
+        folder: str
 
-@dataclass(frozen=True)
-class BSR(Serializable):
-    folder: str = "BSR"
+    @dataclass(frozen=True)
+    class BSR(Serializable):
+        folder: str
 
-
-@dataclass(frozen=True)
-class HOUSTON(Serializable):
-    folder: str = "HOUSTON"
-
-
-JobRegion = Union[MWR, BSR, HOUSTON]
-
-REGION_TYPES = {
-    "MWR": MWR,
-    "BSR": BSR,
-    "HOUSTON": HOUSTON,
-}
+    @dataclass(frozen=True)
+    class HOUSTON(Serializable):
+        folder: str
 
 
 # ---------------------------------------------------------------------------
@@ -40,9 +32,15 @@ REGION_TYPES = {
 # ---------------------------------------------------------------------------
 
 
-class JobType(Enum):
-    ASBUILT = "ASBUILT"
-    DESIGN = "DESIGN"
+@dataclass(frozen=True)
+class JobType(Serializable):
+    @dataclass(frozen=True)
+    class ASBUILT:
+        pass
+
+    @dataclass(frozen=True)
+    class DESIGN:
+        revision_number: int = 0
 
 
 # ---------------------------------------------------------------------------
@@ -64,16 +62,14 @@ class JobPhase(Enum):
 
 @dataclass(frozen=True)
 class JobMeta(Serializable):
-    details: str
     job_type: JobType
+    region: JobRegion
     task_name: str
     company_name: str
-    region: JobRegion
     address: str
-    lat: str
-    long: str
-    clli: str
-    revision_number: int = 0
+    lat: str = ""
+    long: str = ""
+    clli: str = ""
     notes: str = "No Notes"
 
     # -------------------------
@@ -85,7 +81,7 @@ class JobMeta(Serializable):
 
         # Rust‑style pattern matching
         match self.region:
-            case HOUSTON() | MWR():
+            case JobRegion.HOUSTON | JobRegion.MWR:
                 if self.job_type == JobType.ASBUILT and not self.clli:
                     errors.append("CLLI is required for HOUSTON/MWR Asbuilts")
 
@@ -108,7 +104,7 @@ class CfatSpec(Serializable):
     @staticmethod
     def is_needed(meta: JobMeta) -> list[str]:
         match meta.region:
-            case HOUSTON() | MWR():
+            case JobRegion.HOUSTON | JobRegion.MWR:
                 if meta.job_type == JobType.DESIGN:
                     return ["CFAT is required for MWR/HOUSTON Design jobs"]
         return []
@@ -140,17 +136,16 @@ class Job(Serializable):
     network: Optional[NetworkSpec] = None
     cfat: Optional[CfatSpec] = None
 
-    # -------------------------
-    # Derived helpers
-    # -------------------------
-
     @property
     def label(self) -> str:
         return f"{self.id} — {self.meta.company_name if self.meta else 'Unnamed Job'}"
 
-    def validate(self) -> list[str]:
-        errors: list[str] = []
-        errors += self.meta.validate_clli() if self.meta else []
-        if not self.cfat:
-            errors += CfatSpec.is_needed(self.meta) if self.meta else []
-        return errors
+    @property
+    def phase(self) -> JobPhase:
+        if self.meta is not None:
+            if self.cfat is not None or not CfatSpec.is_needed(self.meta):
+                if self.network is not None:
+                    return JobPhase.COMPLETED
+                return JobPhase.PLANNING
+            return JobPhase.PREPARED
+        return JobPhase.CREATED

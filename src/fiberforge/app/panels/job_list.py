@@ -37,6 +37,7 @@ class EmptyJobItem(ListItem):
 class JobList(CommonList):
     BINDINGS = [
         ("o", "new_job", "Create a new job"),
+        ("d", "delete_job", "Delete the selected job"),
     ]
 
     def on_mount(self) -> None:
@@ -64,8 +65,20 @@ class JobList(CommonList):
             log(f"New Job created {job}")
             repo: Store = Store(data_dir)
             repo.save_job(job)
+            repo.close()
             if self.has_empty:
                 await self.clear()
                 self.has_empty = False
             self.append(JobItem(job))
             # await self.recompose()
+
+    async def action_delete_job(self):
+        if self.index is not None:
+            job = await self.pop(self.index)
+            if isinstance(job, JobItem):
+                store = Store(data_dir)
+                store.delete_job(job.job.id.value)
+                store.close()
+            if len(self.children) == 0:
+                self.append(EmptyJobItem())
+                self.has_empty = True

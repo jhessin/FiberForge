@@ -47,7 +47,7 @@ class TimeSpan:
 
 @dataclass(frozen=True)
 class TimeClock(Serializable):
-    time_spans: tuple[TimeSpan, ...]
+    time_spans: tuple[TimeSpan, ...] = ()
 
     def __post_init__(self):
         object.__setattr__(self, "time_spans", tuple(sorted(self.time_spans)))
