@@ -41,6 +41,10 @@ class JobList(CommonList):
     ]
 
     def on_mount(self) -> None:
+        self.action_load_jobs()
+
+    def action_load_jobs(self) -> None:
+        self.clear()
         repo: Store = Store(data_dir)
         db: list[JobId] = repo.load_jobs()
         if not db:
@@ -66,19 +70,17 @@ class JobList(CommonList):
             repo: Store = Store(data_dir)
             repo.save_job(job)
             repo.close()
-            if self.has_empty:
-                await self.clear()
-                self.has_empty = False
-            self.append(JobItem(job))
+            self.action_load_jobs()
             # await self.recompose()
 
     async def action_delete_job(self):
         if self.index is not None:
-            job = await self.pop(self.index)
+            job = self.highlighted_child
             if isinstance(job, JobItem):
                 store = Store(data_dir)
                 store.delete_job(job.job.id.value)
                 store.close()
+                self.action_load_jobs()
             if len(self.children) == 0:
                 self.append(EmptyJobItem())
                 self.has_empty = True

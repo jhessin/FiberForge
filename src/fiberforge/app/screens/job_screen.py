@@ -1,16 +1,49 @@
 from typing import Optional
 
+import pyperclip
+
 from textual import on
 from textual.app import ComposeResult
-from textual.containers import Vertical
+from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input
 
+from fiberforge.app.widgets.smart_input import SmartInput
 from fiberforge.models.ids import JobId
 from fiberforge.models.job import Job
 
 
 class JobScreen(ModalScreen[Optional[Job]]):
+    DEFAULT_CSS = """
+JobScreen {
+  align: center middle;
+
+  Vertical {
+    width: 60;
+    height: 10;
+    border: tall blue;
+
+    SmartInput {
+      width: 100%;
+      height: 4;
+
+      Input {
+        width: 3fr;
+      }
+
+      Button {
+        width: 1fr;
+      }
+    }
+
+    Button {
+      width: 50%;
+      height: 3;
+    }
+  }
+
+}
+    """
 
     BINDINGS = [
         ("enter", "submit", "Save Job"),
@@ -19,12 +52,10 @@ class JobScreen(ModalScreen[Optional[Job]]):
 
     def compose(self) -> ComposeResult:
         with Vertical():
-            yield Input(
-                name="id", restrict=r"[JB0-9]*", id="id", placeholder="Enter the Job ID"
-            )
-            yield Button("Save", id="save")
-            # yield Button("Cancel", action="app.pop_screen()")
-            yield Button("Cancel", id="cancel")
+            yield SmartInput(id="id", placeholder="Enter the Job ID from EP")
+            with Horizontal():
+                yield Button("Save", id="save", variant="primary")
+                yield Button("Cancel", id="cancel", variant="error")
 
     # def on_button_pressed(self, btn: Button.Pressed):
     #     log("button was pressed !!!!!!")
@@ -45,3 +76,8 @@ class JobScreen(ModalScreen[Optional[Job]]):
     @on(Button.Pressed, "#cancel")
     def cancel(self):
         self.dismiss(None)
+
+    @on(Button.Pressed, "#paste")
+    def action_paste(self):
+        id_field = self.query_one("#id", Input)
+        id_field.value = pyperclip.paste()

@@ -44,9 +44,6 @@ class FiberForge(App):
         "quit": QuitScreen,
     }
     CSS_PATH = "style.tcss"
-    BINDINGS = [
-        ("q", "request_quit", "Quit"),
-    ]
 
     async def on_mount(self) -> None:
         await self.push_screen("main")
