@@ -4,8 +4,8 @@ from datetime import date, datetime, timedelta
 from typing import Optional, overload
 
 from fiberforge.models.ids import JobId
-from .common import Serializable
 
+from .common import Serializable
 
 # ---------------------------------------------------------------------------
 # Time Tracking
@@ -16,7 +16,7 @@ from .common import Serializable
 class TimeSpan:
     job_id: JobId
     start: datetime
-    end: Optional[datetime]
+    end: Optional[datetime] = None
 
     def __post_init__(self):
         if self.end and self.start > self.end:
@@ -90,6 +90,27 @@ class TimeClock(Serializable):
     @property
     def time_today(self) -> timedelta:
         return self.time_for_day(date.today())
+
+    def clock_in(self, job: JobId) -> 'TimeClock':
+        new_clock = self.clock_out() if self.clocked_in else self
+        spans = list(new_clock.time_spans)
+        spans.append(TimeSpan(start=datetime.now(), job_id=job))
+        return self.__class__(tuple(spans))
+
+    def clock_out(self) -> 'TimeClock':
+        if self.clocked_in:
+            spans = list(self.time_spans)
+            span = spans[-1]
+            spans[-1] = span.update_end(datetime.now())
+            return self.__class__(tuple(spans))
+        else:
+            return self
+
+    def is_clocked_in(self, job: JobId) -> bool:
+        span = self.time_spans[-1]
+        if span.is_completed:
+            return False
+        return span.job_id == job
 
     @overload
     def __add__(self, other: 'TimeClock') -> 'TimeClock': ...

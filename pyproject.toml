@@ -27,6 +27,12 @@ dev = [
 [tool.ruff]
 preview = true
 
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["fiberforge"]
+
 [tool.ruff.format]
 quote-style = 'single'
 docstring-code-format = true

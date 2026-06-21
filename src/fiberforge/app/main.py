@@ -3,14 +3,15 @@ from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.content import Content
 from textual.screen import Screen
-from textual.widgets import Header, Footer, ListView
+from textual.widgets import Footer, Header, ListView
+
+from fiberforge.models import TimeClock
+from fiberforge.persistence import Database
 
 from .panels.details import Details
 from .panels.job_details import JobDetails
+from .panels.job_list import JobItem, JobList
 from .panels.run_list import RunList
-from fiberforge.models import TimeClock
-from fiberforge.persistence import Database
-from .panels.job_list import JobList, JobItem
 from .screens.quit_screen import QuitScreen
 
 
@@ -59,7 +60,9 @@ class FiberForge(App):
             clock: TimeClock = db.load_todays_clock()
             if clock.clocked_in:
                 td = clock.time_today
-                time_clock = f'{int(td.total_seconds()) // 3600:02}:{int(td.total_seconds()) % 3600 // 60:02}:{int(td.total_seconds()) % 60:02}'
+                time_clock = f'{int(td.total_seconds()) // 3600:02}:{
+                    int(td.total_seconds()) % 3600 // 60:02
+                }:{int(td.total_seconds()) % 60:02}'
                 time_content: Content = Content.styled(time_clock, 'green')
 
             else:

@@ -11,6 +11,13 @@ JobList {
   &:focus {
     border: thick white;
   }
+
+  JobItem {
+
+    Button {
+      dock: right;
+    }
+  }
 }
 
 JobDetails {

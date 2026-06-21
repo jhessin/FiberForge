@@ -1,13 +1,14 @@
-from textual import log
-from textual import work
+from textual import log, on, work
 from textual.app import ComposeResult
-from textual.widgets import ListItem, Label
+from textual.containers import HorizontalGroup
+from textual.widgets import Button, Label, ListItem
 
 from fiberforge.models import Job
 from fiberforge.models.ids import JobId
 from fiberforge.persistence.database import Database
-from .list_common import CommonList
+
 from ..screens.job_screen import JobScreen
+from .list_common import CommonList
 
 
 class JobItem(ListItem):
@@ -16,8 +17,27 @@ class JobItem(ListItem):
         self.job = job
 
     def compose(self) -> ComposeResult:
-        yield Label(self.job.label)
-        # TODO: Add a clock-in/out button
+        with Database() as db:
+            clock = db.load_todays_clock()
+            with HorizontalGroup():
+                yield Label(self.job.label)
+                yield Button(
+                    'Clock Out' if clock.is_clocked_in(self.job.id) else 'Clock In',
+                    variant='error' if clock.is_clocked_in(self.job.id) else 'default',
+                )
+
+    @on(Button.Pressed)
+    async def clock_in_or_out(self, _: Button.Pressed) -> None:
+        with Database() as db:
+            clock = db.load_todays_clock()
+            if clock.is_clocked_in(self.job.id):
+                log.event('CLOCKING OUT')
+                clock = clock.clock_out()
+            else:
+                log.event('CLOCKING IN')
+                clock = clock.clock_in(self.job.id)
+            db.save_clock(clock)
+        await self.recompose()
 
 
 class EmptyJobItem(ListItem):
@@ -33,15 +53,7 @@ class JobList(CommonList):
         ('d', 'delete_job', 'Delete the selected job'),
     ]
 
-    def __init__(
-        self,
-        *children: ListItem,
-        initial_index: int | None = 0,
-        name: str | None = None,
-        id: str | None = None,
-        classes: str | None = None,
-        disabled: bool = False,
-    ):
+    def __init__(self):
         super().__init__()
         self.has_empty: bool = False
 
@@ -51,7 +63,7 @@ class JobList(CommonList):
     def action_load_jobs(self) -> None:
         self.clear()
         with Database() as db:
-            jobs: list[JobId] = db.load_jobs()
+            jobs: list[JobId] = db.load_todays_jobs()
             if not jobs:
                 # Empty State
                 self.append(EmptyJobItem())
@@ -73,6 +85,8 @@ class JobList(CommonList):
             log(f'New Job created {job}')
             with Database() as db:
                 db.save_job(job)
+                clock = db.load_todays_clock().clock_in(job.id)
+                db.save_clock(clock)
             self.action_load_jobs()
             # await self.recompose()
 
