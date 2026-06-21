@@ -1,12 +1,15 @@
 from textual import work
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
+from textual.content import Content
 from textual.screen import Screen
 from textual.widgets import Header, Footer, ListView
 
-from fiberforge.app.panels.details import Details
-from fiberforge.app.panels.job_details import JobDetails
-from fiberforge.app.panels.run_list import RunList
+from .panels.details import Details
+from .panels.job_details import JobDetails
+from .panels.run_list import RunList
+from fiberforge.models import TimeClock
+from fiberforge.persistence import Database
 from .panels.job_list import JobList, JobItem
 from .screens.quit_screen import QuitScreen
 
@@ -17,7 +20,7 @@ class MainScreen(Screen):
     ]
 
     def compose(self) -> ComposeResult:
-        yield Header()
+        yield Header(show_clock=True)
         yield Footer()
 
         with Horizontal():
@@ -49,6 +52,19 @@ class FiberForge(App):
 
     async def on_mount(self) -> None:
         await self.push_screen('main')
+
+    def format_title(self, title: str, sub_title: str) -> Content:
+        title_content = super().format_title(title, sub_title)
+        with Database() as db:
+            clock: TimeClock = db.load_todays_clock()
+            if clock.clocked_in:
+                td = clock.time_today
+                time_clock = f'{int(td.total_seconds()) // 3600:02}:{int(td.total_seconds()) % 3600 // 60:02}:{int(td.total_seconds()) % 60:02}'
+                time_content: Content = Content.styled(time_clock, 'green')
+
+            else:
+                time_content: Content = Content.styled('Not clocked in', 'red')
+        return Content.assemble(title_content, time_content)
 
 
 def app():

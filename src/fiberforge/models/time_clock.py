@@ -4,8 +4,8 @@ from datetime import date, datetime, timedelta
 from typing import Optional, overload
 
 from fiberforge.models.ids import JobId
-
 from .common import Serializable
+
 
 # ---------------------------------------------------------------------------
 # Time Tracking
@@ -63,6 +63,13 @@ class TimeClock(Serializable):
             raise ValueError('Only your last time span can be incomplete')
 
         # TODO: Ensure that none of the times overlap.
+
+    @property
+    def clocked_in(self) -> bool:
+        incomplete_time_spans: list[TimeSpan] = [
+            t for t in self.time_spans if not t.is_completed
+        ]
+        return bool(incomplete_time_spans)
 
     @property
     def total_time(self) -> timedelta:

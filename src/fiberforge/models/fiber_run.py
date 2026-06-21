@@ -48,13 +48,13 @@ class FiberRun(Serializable):
     # ---------- transformation (immutably) ----------
 
     @overload
-    def __add__(self, other: NamedSpan) -> "FiberRun": ...
+    def __add__(self, other: NamedSpan) -> 'FiberRun': ...
 
     @overload
-    def __add__(self, other: Iterable[MeasuredSpan]) -> "FiberRun": ...
+    def __add__(self, other: Iterable[MeasuredSpan]) -> 'FiberRun': ...
 
     @overload
-    def __add__(self, other: Iterable[NamedSpan]) -> "FiberRun": ...
+    def __add__(self, other: Iterable[NamedSpan]) -> 'FiberRun': ...
 
     def __add__(self, other):
         # Case 1: A single NamedSpan
@@ -78,7 +78,7 @@ class FiberRun(Serializable):
             isinstance(v, MeasuredSpan) for v in other
         ):
             if not self.spans:
-                raise ValueError("Cannot append measured spans to an empty FiberRun")
+                raise ValueError('Cannot append measured spans to an empty FiberRun')
 
             *prefix, last = self.spans
             new_last = last + other
@@ -89,4 +89,4 @@ class FiberRun(Serializable):
                 spans=(*prefix, new_last),
             )
 
-        raise TypeError(f"Unsupported operand type for +: {type(other)}")
+        raise TypeError(f'Unsupported operand type for +: {type(other)}')
