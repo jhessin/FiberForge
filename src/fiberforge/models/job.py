@@ -132,13 +132,14 @@ class NetworkSpec(Serializable):
 @dataclass(frozen=True)
 class Job(Serializable):
     id: JobId
+    nickname: Optional[str] = None
     meta: Optional[JobMeta] = None
     network: Optional[NetworkSpec] = None
     cfat: Optional[CfatSpec] = None
 
     @property
     def label(self) -> str:
-        return f"{self.id} — {self.meta.company_name if self.meta else 'Unnamed Job'}"
+        return self.nickname if self.nickname else self.id.value
 
     @property
     def phase(self) -> JobPhase:

@@ -1,12 +1,16 @@
-from textual.widgets import Static
+from typing import Optional
+
+from textual.app import ComposeResult
+from textual.containers import Grid
+from textual.reactive import reactive
+from textual.widgets import Label, Static
+
+from fiberforge.models.job import Job
 
 
 class JobDetails(Static):
-    DEFAULT_CSS = """
-JobDetails {
-    border: tall blue;
-    width: 1fr;
-    height: 50%;
-    margin: 2 2;
-}
-    """
+    job: reactive[Optional[Job]] = reactive(None, recompose=True)
+
+    def compose(self) -> ComposeResult:
+        with Grid():
+            yield Label(self.job.label if self.job else 'No Job Selected')

@@ -1,4 +1,5 @@
 from fiberforge.models import FiberRun, Filter, Span
+from models import MeasuredSpan
 
 
 class LengthService:
@@ -18,7 +19,7 @@ class LengthService:
         )
 
     @staticmethod
-    def by_type(run: FiberRun, t: type[Span.MeasuredSpan]) -> int:
+    def by_type(run: FiberRun, t: type[MeasuredSpan]) -> int:
         """Sum lengths of all measured spans of a specific type."""
         return sum(
             sum(seg.lengths)

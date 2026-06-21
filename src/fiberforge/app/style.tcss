@@ -1,0 +1,83 @@
+Screen {
+  align: center middle;
+}
+
+JobList {
+  border: tall white;
+  width: 1fr;
+  height: 100%;
+  margin: 1 1;
+
+  &:focus {
+    border: thick white;
+  }
+}
+
+JobDetails {
+  border: tall blue;
+  width: 1fr;
+  height: 50%;
+  margin: 1 1;
+}
+
+Details {
+  border: tall teal;
+  width: 2fr;
+  height: 100%;
+  margin: 1 1;
+}
+
+Label {
+  padding: 1 2;
+}
+
+JobScreen {
+  align: center middle;
+
+  Vertical {
+    width: 60;
+    height: 10;
+    border: tall blue;
+
+    SmartInput {
+      width: 100%;
+      height: 4;
+
+      Input {
+        width: 3fr;
+      }
+
+      Button {
+        width: 1fr;
+      }
+    }
+
+    Button {
+      width: 50%;
+      height: 3;
+    }
+  }
+
+}
+
+RunList {
+  border: tall aqua;
+  width: 1fr;
+  height: 50%;
+  margin: 1 1;
+  &:focus {
+    border: thick aqua;
+  }
+}
+
+SmartInput {
+
+  Input {
+    width: 3fr;
+  }
+
+  Button {
+    width: 1fr;
+  }
+
+}

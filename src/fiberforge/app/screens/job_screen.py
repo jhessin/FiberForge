@@ -14,36 +14,6 @@ from fiberforge.models.job import Job
 
 
 class JobScreen(ModalScreen[Optional[Job]]):
-    DEFAULT_CSS = """
-JobScreen {
-  align: center middle;
-
-  Vertical {
-    width: 60;
-    height: 10;
-    border: tall blue;
-
-    SmartInput {
-      width: 100%;
-      height: 4;
-
-      Input {
-        width: 3fr;
-      }
-
-      Button {
-        width: 1fr;
-      }
-    }
-
-    Button {
-      width: 50%;
-      height: 3;
-    }
-  }
-
-}
-    """
 
     BINDINGS = [
         ("enter", "submit", "Save Job"),

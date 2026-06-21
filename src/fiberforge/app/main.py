@@ -1,20 +1,19 @@
 from textual import work
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
-from textual.widgets import Header, Footer
 from textual.screen import Screen
+from textual.widgets import Header, Footer, ListView
 
 from fiberforge.app.panels.details import Details
 from fiberforge.app.panels.job_details import JobDetails
 from fiberforge.app.panels.run_list import RunList
-
+from .panels.job_list import JobList, JobItem
 from .screens.quit_screen import QuitScreen
-from .panels.job_list import JobList
 
 
 class MainScreen(Screen):
     BINDINGS = [
-        ("q", "request_quit", "Quit"),
+        ('q', 'request_quit', 'Quit'),
     ]
 
     def compose(self) -> ComposeResult:
@@ -30,23 +29,26 @@ class MainScreen(Screen):
 
     @work
     async def action_request_quit(self):
-        quiting = await self.app.push_screen_wait("quit")
+        quiting = await self.app.push_screen_wait('quit')
         if quiting:
             self.app.exit()
 
+    async def on_list_view_selected(self, selected: ListView.Selected):
+        if isinstance(selected.item, JobItem):
+            self.query_one(JobDetails).job = selected.item.job
+
 
 class FiberForge(App):
-
-    TITLE = "FiberForge"
-    SUB_TITLE = "Forge your fiber."
+    TITLE = 'FiberForge'
+    SUB_TITLE = 'Forge your fiber.'
     SCREENS = {
-        "main": MainScreen,
-        "quit": QuitScreen,
+        'main': MainScreen,
+        'quit': QuitScreen,
     }
-    CSS_PATH = "style.tcss"
+    CSS_PATH = 'style.tcss'
 
     async def on_mount(self) -> None:
-        await self.push_screen("main")
+        await self.push_screen('main')
 
 
 def app():

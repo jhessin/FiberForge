@@ -8,15 +8,6 @@ import pyperclip
 
 
 class SmartInput(Widget):
-    DEFAULT_CSS = """
-    Input {
-        width: 3fr;
-    }
-
-    Button {
-        width: 1fr;
-    }
-    """
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__()

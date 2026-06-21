@@ -13,11 +13,16 @@ class MeasuredSpan(Serializable, ABC):
     new: bool = False
 
     @overload
-    def __add__(self, other: int) -> Self: ...
+    def __add__(self, other: int) -> Self:
+        ...
+
     @overload
-    def __add__(self, other: Iterable[int]) -> Self: ...
+    def __add__(self, other: Iterable[int]) -> Self:
+        ...
+
     @overload
-    def __add__(self, other: "MeasuredSpan") -> Self: ...
+    def __add__(self, other: "MeasuredSpan") -> Self:
+        ...
 
     def with_lengths(self, new_lengths: Iterable[int]) -> "MeasuredSpan":
         return self.__class__(
@@ -45,7 +50,6 @@ class MeasuredSpan(Serializable, ABC):
 
 @dataclass(frozen=True)
 class Span:
-
     @dataclass(frozen=True)
     class UG(MeasuredSpan):
         pass
@@ -83,26 +87,33 @@ class NamedSpan(Serializable):
                 raise TypeError("All spans must be MeasuredSpan instances")
 
     @overload
-    def __add__(self, other: int) -> "NamedSpan": ...
+    def __add__(self, other: int) -> "NamedSpan":
+        ...
+
     @overload
-    def __add__(self, other: Iterable[int]) -> "NamedSpan": ...
+    def __add__(self, other: Iterable[int]) -> "NamedSpan":
+        ...
+
     @overload
-    def __add__(self, other: MeasuredSpan) -> "NamedSpan": ...
+    def __add__(self, other: MeasuredSpan) -> "NamedSpan":
+        ...
+
     @overload
-    def __add__(self, other: Iterable[MeasuredSpan]) -> "NamedSpan": ...
+    def __add__(self, other: Iterable[MeasuredSpan]) -> "NamedSpan":
+        ...
 
     def __add__(self, other):
         spans = list(self.spans)
 
         # Case 1: add a single length to last segment
         if isinstance(other, int):
-            last = spans[-1]
+            last: MeasuredSpan = spans[-1]
             new_last = last.__class__(lengths=(*last.lengths, other), new=True)
             spans[-1] = new_last
 
         # Case 2: add a MeasuredSpan
         elif isinstance(other, MeasuredSpan):
-            last = spans[-1]
+            last: MeasuredSpan = spans[-1]
             if last.__class__ is other.__class__:
                 spans[-1] = last + other
             else:
@@ -110,15 +121,16 @@ class NamedSpan(Serializable):
 
         # Case 3: Iterable
         elif isinstance(other, Iterable):
-            items = list(other)
 
             # Iterable[int]
-            if all(isinstance(i, int) for i in items):
+            if all(isinstance(i, int) for i in other):
+                items: list[int] = list(other)
                 last = spans[-1]
                 spans[-1] = last + items
 
             # Iterable[MeasuredSpan]
-            elif all(isinstance(i, MeasuredSpan) for i in items):
+            elif all(isinstance(i, MeasuredSpan) for i in other):
+                items: list[MeasuredSpan] = list(other)
                 spans.extend(items)
 
             else:
