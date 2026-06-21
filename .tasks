@@ -14,7 +14,7 @@ save=1
 [run:debug]
 cwd=$(VIM_ROOT)
 
-command=uv run textual run --dev fiberforge.app.main
+command=uv run textual run --dev fiberforge
 
 output=terminal
 pos=external

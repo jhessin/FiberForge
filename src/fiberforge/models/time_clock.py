@@ -20,11 +20,11 @@ class TimeSpan:
 
     def __post_init__(self):
         if self.end and self.start > self.end:
-            raise ValueError("Your time span cannot be negative.")
+            raise ValueError('Your time span cannot be negative.')
         elif self.as_timedelta < -timedelta(minutes=15):
-            raise ValueError("Your start time is too far in the future.")
+            raise ValueError('Your start time is too far in the future.')
 
-    def __lt__(self, other: "TimeSpan") -> bool:
+    def __lt__(self, other: 'TimeSpan') -> bool:
         return self.start < other.start
 
     @property
@@ -38,10 +38,10 @@ class TimeSpan:
     def is_completed(self) -> bool:
         return bool(self.end)
 
-    def update_start(self, start: datetime) -> "TimeSpan":
+    def update_start(self, start: datetime) -> 'TimeSpan':
         return TimeSpan(job_id=self.job_id, start=start, end=self.end)
 
-    def update_end(self, end: datetime) -> "TimeSpan":
+    def update_end(self, end: datetime) -> 'TimeSpan':
         return TimeSpan(job_id=self.job_id, start=self.start, end=end)
 
 
@@ -50,7 +50,7 @@ class TimeClock(Serializable):
     time_spans: tuple[TimeSpan, ...] = ()
 
     def __post_init__(self):
-        object.__setattr__(self, "time_spans", tuple(sorted(self.time_spans)))
+        object.__setattr__(self, 'time_spans', tuple(sorted(self.time_spans)))
         incomplete_time_spans: list[TimeSpan] = [
             t for t in self.time_spans if not t.is_completed
         ]
@@ -60,7 +60,7 @@ class TimeClock(Serializable):
             len(incomplete_time_spans) > 1
             or incomplete_time_spans[-1] != self.time_spans[-1]
         ):
-            raise ValueError("Only your last time span can be incomplete")
+            raise ValueError('Only your last time span can be incomplete')
 
         # TODO: Ensure that none of the times overlap.
 
@@ -85,10 +85,10 @@ class TimeClock(Serializable):
         return self.time_for_day(date.today())
 
     @overload
-    def __add__(self, other: "TimeClock") -> "TimeClock": ...
+    def __add__(self, other: 'TimeClock') -> 'TimeClock': ...
 
     @overload
-    def __add__(self, other: TimeSpan) -> "TimeClock": ...
+    def __add__(self, other: TimeSpan) -> 'TimeClock': ...
 
     def __add__(self, other):
         if isinstance(other, TimeSpan):
