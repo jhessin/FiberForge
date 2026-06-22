@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from typing import Optional
 
-from .common import FiberDevice, Serializable, Color
-from .ids import DeviceId, FiberId, SpanId, PortId
+from .common import Color, FiberDevice, Serializable
+from .ids import DeviceId, FiberId, PortId, SpanId
 
 # ---------- Splice Model ----------
 
@@ -24,12 +24,14 @@ class FiberRef(Serializable):
 
     @property
     def id(self) -> FiberId:
-        return FiberId(f"{self.span_id.value} FIBER {self.fiber}")
+        return FiberId(f'{self.span_id.value} FIBER {self.fiber}')
 
     def __str__(self) -> str:
         if self.color:
-            return f"{self.span_id.value} FIBER {self.fiber} {"T-" if self.color.tracer else ""}{self.color.buffer}{self.color.color}"
-        return f"{self.span_id.value} FIBER {self.fiber}"
+            return f"{self.span_id.value} FIBER {self.fiber} {
+                'T-' if self.color.tracer else ''
+            }{self.color.buffer}{self.color.color}"
+        return f'{self.span_id.value} FIBER {self.fiber}'
 
 
 @dataclass(frozen=True)
@@ -41,7 +43,7 @@ class PortRef(Serializable):
 
     @property
     def id(self) -> PortId:
-        return PortId(f"{self.panel_id} PORT {self.port}")
+        return PortId(f'{self.panel_id} PORT {self.port}')
 
     def __str__(self) -> str:
         return self.id.value

@@ -1,8 +1,7 @@
-from datetime import datetime
 from abc import ABC
 from dataclasses import dataclass
-from typing import Any, Type, TypeVar
 from enum import Enum, auto
+from typing import Any, Optional, Type, TypeVar
 
 import dill
 
@@ -10,29 +9,17 @@ from .ids import DeviceId
 
 # Type Aliases
 SerializedPayload = dict[str, Any]
-T = TypeVar("T", bound="Serializable")
+T = TypeVar('T', bound='Serializable')
 
 
-# 1. Custom MessagePack Hooks for Datetime Conversion
-def encode_datetime_hook(obj: Any) -> Any:
-    """Tells MessagePack how to transform a datetime into a type it supports."""
-    if isinstance(obj, datetime):
-        # Store everything cleanly in ISO format string
-        return {"__datetime__": True, "as_iso": obj.isoformat()}
-    return obj
-
-
-def decode_datetime_hook(obj: dict[Any, Any]) -> Any:
-    """Tells MessagePack how to transform its custom dict back into a datetime."""
-    if "__datetime__" in obj:
-        # Convert the string back into a true Python datetime object
-        return datetime.fromisoformat(obj["as_iso"])
-    return obj
+@dataclass(frozen=True)
+class GeoTag:
+    lat: str
+    long: str
 
 
 @dataclass(frozen=True)
 class Serializable(ABC):
-
     def to_binary(self) -> bytes:
         """Serializes the dataclass fields to a dill binary BLOB."""
         return dill.dumps(self)
@@ -51,6 +38,7 @@ class Address(Serializable):
 @dataclass(frozen=True)
 class FiberDevice(Serializable):
     id: DeviceId
+    geo_tag: Optional[GeoTag] = None
 
 
 class Color(Enum):
