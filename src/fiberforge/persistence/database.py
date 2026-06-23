@@ -140,6 +140,7 @@ class Database(AbstractContextManager):
         self.__exit__()
 
     def __enter__(self) -> 'Database':
+        data_dir.mkdir(parents=True, exist_ok=True)
         self.conn: sqlite3.Connection = sqlite3.connect(data_dir / 'data.db')
         self.cursor: sqlite3.Cursor = self.conn.cursor()
         return self
