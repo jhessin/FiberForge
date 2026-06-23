@@ -67,17 +67,17 @@ class PortSplice(Serializable):
 
 @dataclass(frozen=True)
 class SpliceCan(FiberDevice):
-    spans: tuple[SpanId, ...]
+    spans: tuple[SpanId, ...] = ()
     splices: tuple[Splice, ...] = ()
 
 
 @dataclass(frozen=True)
 class TermPanel(FiberDevice):
-    spans: tuple[SpanId, ...]
+    spans: tuple[SpanId, ...] = ()
     splices: tuple[PortSplice, ...] = ()
 
 
 @dataclass(frozen=True)
 class Hub(FiberDevice):
-    spans: tuple[SpanId, ...]
-    splices: tuple[PortSplice, ...]
+    spans: tuple[SpanId, ...] = ()
+    splices: tuple[PortSplice, ...] = ()

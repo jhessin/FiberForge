@@ -1,9 +1,13 @@
+from typing import Optional
+
 from textual import log, on, work
 from textual.app import ComposeResult
 from textual.containers import HorizontalGroup
+from textual.reactive import reactive
 from textual.widgets import Button, Label, ListItem
 
-from fiberforge.models import Job
+from fiberforge.app.messages import UpdateClock, UpdateJobs
+from fiberforge.models import Job, TimeClock
 from fiberforge.models.ids import JobId
 from fiberforge.persistence.database import Database
 
@@ -12,13 +16,15 @@ from .list_common import CommonList
 
 
 class JobItem(ListItem):
+    time_clock: reactive[Optional[TimeClock]] = reactive(None)
+
     def __init__(self, job: Job) -> None:
         super().__init__()
         self.job = job
 
     def compose(self) -> ComposeResult:
         with Database() as db:
-            clock = db.load_todays_clock()
+            clock = self.time_clock or db.clock.today()
             with HorizontalGroup():
                 yield Label(self.job.label)
                 yield Button(
@@ -29,15 +35,16 @@ class JobItem(ListItem):
     @on(Button.Pressed)
     async def clock_in_or_out(self, _: Button.Pressed) -> None:
         with Database() as db:
-            clock = db.load_todays_clock()
+            clock = db.clock.today()
             if clock.is_clocked_in(self.job.id):
                 log.event('CLOCKING OUT')
                 clock = clock.clock_out()
             else:
                 log.event('CLOCKING IN')
                 clock = clock.clock_in(self.job.id)
-            db.save_clock(clock)
-        await self.recompose()
+            db.clock.save(clock)
+
+        self.post_message(UpdateClock())
 
 
 class EmptyJobItem(ListItem):
@@ -52,30 +59,30 @@ class JobList(CommonList):
         ('o', 'new_job', 'Create a new job'),
         ('d', 'delete_job', 'Delete the selected job'),
     ]
+    time_clock: reactive[Optional[TimeClock]] = reactive(None)
+    jobs: reactive[tuple[JobId, ...]] = reactive(())
 
     def __init__(self):
         super().__init__()
         self.has_empty: bool = False
 
     def on_mount(self) -> None:
-        self.action_load_jobs()
+        self.post_message(UpdateJobs())
 
-    def action_load_jobs(self) -> None:
+    def watch_jobs(self):
         self.clear()
-        with Database() as db:
-            jobs: list[JobId] = db.load_todays_jobs()
-            if not jobs:
-                # Empty State
-                self.append(EmptyJobItem())
-                self.has_empty = True
-            else:
-                self.has_empty = False
-                for job_id in jobs:
-                    job = db.get_job_by_id(job_id.value)
+        if not self.jobs:
+            # Empty State
+            self.append(EmptyJobItem())
+            self.has_empty = True
+        else:
+            self.has_empty = False
+            with Database() as db:
+                for job_id in self.jobs:
+                    job = db.jobs.by_id(job_id.value)
                     if job:
-                        item = JobItem(job)
-                        item.can_focus = True
-                        self.append(item)
+                        self.append(JobItem(job).data_bind(JobList.time_clock))
+        self.focus()
 
     @work
     async def action_new_job(self):
@@ -84,19 +91,22 @@ class JobList(CommonList):
         if job:
             log(f'New Job created {job}')
             with Database() as db:
-                db.save_job(job)
-                clock = db.load_todays_clock().clock_in(job.id)
-                db.save_clock(clock)
-            self.action_load_jobs()
-            # await self.recompose()
+                db.jobs.save(job)
+                if self.time_clock:
+                    db.clock.save(self.time_clock.clock_in(job.id))
+                else:
+                    db.clock.save(db.clock.today().clock_in(job.id))
+            self.post_message(UpdateClock())
+            self.post_message(UpdateJobs())
 
     async def action_delete_job(self):
         if self.index is not None:
             job = self.highlighted_child
             if isinstance(job, JobItem):
                 with Database() as db:
-                    db.delete_job(job.job.id.value)
-                self.action_load_jobs()
+                    db.jobs.delete(job.job.id.value)
             if len(self.children) == 0:
                 self.append(EmptyJobItem())
                 self.has_empty = True
+            self.post_message(UpdateJobs())
+            self.post_message(UpdateClock())

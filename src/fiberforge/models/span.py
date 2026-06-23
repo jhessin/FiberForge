@@ -1,10 +1,10 @@
 # spans.py
-from dataclasses import dataclass, field
 from abc import ABC
-from typing import overload, Self, Iterable
+from dataclasses import dataclass, field
+from typing import Iterable, Self, overload
 
-from .ids import DeviceId, SpanId
 from .common import Serializable
+from .ids import DeviceId, SpanId
 
 
 @dataclass(frozen=True)
@@ -13,18 +13,15 @@ class MeasuredSpan(Serializable, ABC):
     new: bool = False
 
     @overload
-    def __add__(self, other: int) -> Self:
-        ...
+    def __add__(self, other: int) -> Self: ...
 
     @overload
-    def __add__(self, other: Iterable[int]) -> Self:
-        ...
+    def __add__(self, other: Iterable[int]) -> Self: ...
 
     @overload
-    def __add__(self, other: "MeasuredSpan") -> Self:
-        ...
+    def __add__(self, other: 'MeasuredSpan') -> Self: ...
 
-    def with_lengths(self, new_lengths: Iterable[int]) -> "MeasuredSpan":
+    def with_lengths(self, new_lengths: Iterable[int]) -> 'MeasuredSpan':
         return self.__class__(
             lengths=tuple(new_lengths),
             new=self.new,
@@ -42,10 +39,10 @@ class MeasuredSpan(Serializable, ABC):
         # Case 3: add another MeasuredSpan
         if isinstance(other, MeasuredSpan):
             if self.__class__ is not other.__class__:
-                raise TypeError(f"Cannot add {type(self)} and {type(other)} together.")
+                raise TypeError(f'Cannot add {type(self)} and {type(other)} together.')
             return self.with_lengths((*self.lengths, *other.lengths))
 
-        raise TypeError(f"Cannot add {type(other)} to MeasuredSpan")
+        raise TypeError(f'Cannot add {type(other)} to MeasuredSpan')
 
 
 @dataclass(frozen=True)
@@ -81,26 +78,22 @@ class NamedSpan(Serializable):
 
     def __post_init__(self):
         if self.size <= 0:
-            raise ValueError("Fiber size must be positive")
+            raise ValueError('Fiber size must be positive')
         for s in self.spans:
             if not isinstance(s, MeasuredSpan):
-                raise TypeError("All spans must be MeasuredSpan instances")
+                raise TypeError('All spans must be MeasuredSpan instances')
 
     @overload
-    def __add__(self, other: int) -> "NamedSpan":
-        ...
+    def __add__(self, other: int) -> 'NamedSpan': ...
 
     @overload
-    def __add__(self, other: Iterable[int]) -> "NamedSpan":
-        ...
+    def __add__(self, other: Iterable[int]) -> 'NamedSpan': ...
 
     @overload
-    def __add__(self, other: MeasuredSpan) -> "NamedSpan":
-        ...
+    def __add__(self, other: MeasuredSpan) -> 'NamedSpan': ...
 
     @overload
-    def __add__(self, other: Iterable[MeasuredSpan]) -> "NamedSpan":
-        ...
+    def __add__(self, other: Iterable[MeasuredSpan]) -> 'NamedSpan': ...
 
     def __add__(self, other):
         spans = list(self.spans)
@@ -121,23 +114,22 @@ class NamedSpan(Serializable):
 
         # Case 3: Iterable
         elif isinstance(other, Iterable):
-
             # Iterable[int]
             if all(isinstance(i, int) for i in other):
-                items: list[int] = list(other)
+                int_items: list[int] = list(other)
                 last = spans[-1]
-                spans[-1] = last + items
+                spans[-1] = last + int_items
 
             # Iterable[MeasuredSpan]
             elif all(isinstance(i, MeasuredSpan) for i in other):
-                items: list[MeasuredSpan] = list(other)
-                spans.extend(items)
+                span_items: list[MeasuredSpan] = list(other)
+                spans.extend(span_items)
 
             else:
-                raise TypeError("Iterable must contain ints or MeasuredSpan objects")
+                raise TypeError('Iterable must contain ints or MeasuredSpan objects')
 
         else:
-            raise TypeError(f"Cannot add {type(other)} to NamedSpan")
+            raise TypeError(f'Cannot add {type(other)} to NamedSpan')
 
         return NamedSpan(
             id=self.id,
