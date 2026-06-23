@@ -1,0 +1,9 @@
+{
+  "connections": [
+    {
+      "name": "fiberforge",
+      "adapter": "sqlite3",
+      "database": "${LOCALAPPDATA}/GrillbrickStudios/FiberForge/data.db"
+    }
+  ]
+}
