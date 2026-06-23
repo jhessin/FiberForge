@@ -43,15 +43,12 @@ class MainScreen(Screen):
                 yield RunList()
             yield Details()
 
+    @on(UpdateJobs)
     @on(UpdateClock)
-    def update_clock(self, _: UpdateClock):
+    def update_db(self, _: UpdateClock):
         with Database() as db:
             self.time_clock = db.clock.today()
-
-    @on(UpdateJobs)
-    def update_jobs(self, _: UpdateJobs):
-        with Database() as db:
-            self.jobs = tuple(db.jobs.load())
+            self.jobs = db.jobs.load()
 
     @work
     async def action_request_quit(self):
