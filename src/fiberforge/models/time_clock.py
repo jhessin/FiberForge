@@ -100,6 +100,8 @@ class TimeClock(Serializable):
     def clock_out(self) -> 'TimeClock':
         if self.clocked_in:
             spans = list(self.time_spans)
+            if not spans:
+                return self
             span = spans[-1]
             spans[-1] = span.update_end(datetime.now())
             return self.__class__(tuple(spans))
@@ -107,6 +109,8 @@ class TimeClock(Serializable):
             return self
 
     def is_clocked_in(self, job: JobId) -> bool:
+        if not self.time_spans:
+            return False
         span = self.time_spans[-1]
         if span.is_completed:
             return False

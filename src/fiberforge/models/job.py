@@ -1,7 +1,8 @@
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Iterable, Optional, Literal
+from typing import Iterable, Literal, Optional
 
 from .common import Serializable
 from .ids import DeviceId, JobId, MuxId, SpanId
@@ -13,7 +14,6 @@ from .ids import DeviceId, JobId, MuxId, SpanId
 
 @dataclass(frozen=True)
 class JobRegion(Serializable):
-
     @dataclass(frozen=True)
     class MWR(Serializable):
         folder: str
@@ -49,10 +49,10 @@ class JobType(Serializable):
 
 
 class JobPhase(Enum):
-    CREATED = "CREATED"
-    PREPARED = "PREPARED"
-    PLANNING = "PLANNING"
-    COMPLETED = "COMPLETED"
+    CREATED = 'CREATED'
+    PREPARED = 'PREPARED'
+    PLANNING = 'PLANNING'
+    COMPLETED = 'COMPLETED'
 
 
 # ---------------------------------------------------------------------------
@@ -67,10 +67,10 @@ class JobMeta(Serializable):
     task_name: str
     company_name: str
     address: str
-    lat: str = ""
-    long: str = ""
-    clli: str = ""
-    notes: str = "No Notes"
+    lat: str = ''
+    long: str = ''
+    clli: str = ''
+    notes: str = 'No Notes'
 
     # -------------------------
     # Validation
@@ -83,7 +83,7 @@ class JobMeta(Serializable):
         match self.region:
             case JobRegion.HOUSTON | JobRegion.MWR:
                 if self.job_type == JobType.ASBUILT and not self.clli:
-                    errors.append("CLLI is required for HOUSTON/MWR Asbuilts")
+                    errors.append('CLLI is required for HOUSTON/MWR Asbuilts')
 
         return errors
 
@@ -106,7 +106,7 @@ class CfatSpec(Serializable):
         match meta.region:
             case JobRegion.HOUSTON | JobRegion.MWR:
                 if meta.job_type == JobType.DESIGN:
-                    return ["CFAT is required for MWR/HOUSTON Design jobs"]
+                    return ['CFAT is required for MWR/HOUSTON Design jobs']
         return []
 
 
