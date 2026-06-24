@@ -25,6 +25,18 @@ JobDetails {
   width: 1fr;
   height: 50%;
   margin: 1 1;
+  align: center middle;
+  Container {
+    layout: grid;
+    grid-size: 3 4;
+    #JobName {
+      column-span: 3;
+      width: 100%;
+    }
+    .button {
+      height: 3;
+    }
+  }
 }
 
 Details {

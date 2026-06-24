@@ -77,7 +77,7 @@ class Database(AbstractContextManager):
             end = start + timedelta(days=1)
 
             self.db.cursor.execute(
-                'SELECT * FROM TimeClock WHERE start >= ? AND start < ?',
+                'SELECT * FROM TimeClockArchive WHERE start >= ? AND start < ?',
                 (start.isoformat(), end.isoformat()),
             )
             for start, end, job_id, _ in self.db.cursor.fetchall():
@@ -156,4 +156,8 @@ class Database(AbstractContextManager):
         schema = HERE / 'schema.sql'
 
         self.conn.executescript(schema.read_text())
+        self.conn.commit()
+
+        compress_time_clock = HERE / 'compress_time_clock.sql'
+        self.conn.executescript(compress_time_clock.read_text())
         self.conn.commit()
