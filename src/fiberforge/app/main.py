@@ -92,22 +92,8 @@ class FiberForge(App):
     async def on_mount(self) -> None:
         await self.push_screen('main')
 
-    # This doesn't update.
-    # def format_title(self, title: str, sub_title: str) -> Content:
-    #     title_content = super().format_title(title, sub_title)
-    #     with Database() as db:
-    #         clock: TimeClock = db.clock.today()
-    #         if clock.clocked_in:
-    #             time_content: Content = Content.styled('Clocked In', 'green')
-    #             # td = clock.time_today
-    #             # time_clock = f'{int(td.total_seconds()) // 3600:02}:{
-    #             #     int(td.total_seconds()) % 3600 // 60:02
-    #             # }:{int(td.total_seconds()) % 60:02}'
-    #             # time_content: Content = Content.styled(time_clock, 'green')
-    #
-    #         else:
-    #             time_content: Content = Content.styled('Not clocked in', 'red')
-    #     return Content.assemble(title_content, time_content)
+    def action_set_detail(self):
+        pass
 
 
 def app():

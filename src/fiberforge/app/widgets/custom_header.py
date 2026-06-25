@@ -13,6 +13,8 @@ from textual.reactive import Reactive
 from textual.widget import Widget
 from textual.widgets import Static
 
+from fiberforge.app.messages import UpdateDetail
+from fiberforge.app.panels.clock_details import ClockDetails
 from fiberforge.models.time_clock import TimeClock
 from fiberforge.persistence.database import Database
 
@@ -93,6 +95,13 @@ class HeaderClock(HeaderClockSpace):
 
     def on_mount(self) -> None:
         self.set_interval(1, callback=self.refresh, name='update header clock')
+
+    async def on_click(self, event: Click) -> None:
+        """Set the detail to show time clock details."""
+        event.stop()
+        self.post_message(
+            UpdateDetail(ClockDetails().data_bind(clock=HeaderClock.time_clock))
+        )
 
     def render(self) -> RenderResult:
         """Render the header clock.
