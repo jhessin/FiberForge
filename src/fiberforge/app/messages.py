@@ -1,9 +1,13 @@
+from dataclasses import dataclass
+
 from textual.message import Message
+from textual.widget import Widget
 
 
-class UpdateClock(Message):
+class UpdateDB(Message):
     pass
 
 
-class UpdateJobs(Message):
-    pass
+@dataclass
+class UpdateDetail(Message):
+    widget: Widget

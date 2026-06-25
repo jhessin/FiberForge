@@ -2,14 +2,19 @@ from typing import Optional
 
 from textual.app import ComposeResult
 from textual.containers import HorizontalGroup, VerticalGroup
+from textual.message import Message
 from textual.reactive import reactive
 from textual.widgets import Button, Label, Static
 
+from fiberforge.app.widgets.utils import FocusButton
 from fiberforge.models.job import Job
 
 
 class JobDetails(Static):
     job: reactive[Optional[Job]] = reactive(None, recompose=True)
+
+    class Ready(Message):
+        pass
 
     def compose(self) -> ComposeResult:
         with VerticalGroup():
@@ -18,7 +23,10 @@ class JobDetails(Static):
                 with HorizontalGroup():
                     with VerticalGroup(id='metagroup'):
                         yield Button('View Meta', disabled=self.job.meta is None)
-                        yield Button('Edit Meta' if self.job.meta else 'Create Meta')
+                        yield FocusButton(
+                            'Edit Meta' if self.job.meta else 'Create Meta',
+                            id='editmetabutton',
+                        )
                     with VerticalGroup(id='networkgroup'):
                         yield Button(
                             'View Network Info', disabled=self.job.network is None

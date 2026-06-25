@@ -1,17 +1,17 @@
 from typing import Optional
 
-from textual import log, on, work
+from textual import log, on
 from textual.app import ComposeResult
 from textual.containers import HorizontalGroup
 from textual.reactive import reactive
 from textual.widgets import Button, Label, ListItem
 
-from fiberforge.app.messages import UpdateClock, UpdateJobs
+from fiberforge.app.messages import UpdateDB, UpdateDetail
+from fiberforge.app.screens.job_screen import JobScreen
 from fiberforge.models import Job, TimeClock
 from fiberforge.models.ids import JobId
 from fiberforge.persistence.database import Database
 
-from ..screens.job_screen import JobScreen
 from .list_common import CommonList
 
 
@@ -44,7 +44,7 @@ class JobItem(ListItem):
                 clock = clock.clock_in(self.job.id)
             db.clock.save(clock)
 
-        self.post_message(UpdateClock())
+        self.post_message(UpdateDB())
 
 
 class EmptyJobItem(ListItem):
@@ -56,8 +56,9 @@ class EmptyJobItem(ListItem):
 
 class JobList(CommonList):
     BINDINGS = [
-        ('o', 'new_job', 'Create a new job'),
         ('d', 'delete_job', 'Delete the selected job'),
+        ('o', 'new_job', 'Create a new job'),
+        ('space', 'push_button', 'Clock In/Out'),
     ]
     time_clock: reactive[Optional[TimeClock]] = reactive(None)
     jobs: reactive[tuple[JobId, ...]] = reactive(())
@@ -66,8 +67,16 @@ class JobList(CommonList):
         super().__init__()
         self.has_empty: bool = False
 
+    async def action_new_job(self):
+        self.post_message(UpdateDetail(JobScreen()))
+
     def on_mount(self) -> None:
-        self.post_message(UpdateJobs())
+        self.post_message(UpdateDB())
+
+    def action_push_button(self):
+        item = self.highlighted_child
+        if item:
+            item.query_one(Button).press()
 
     def watch_jobs(self):
         self.clear()
@@ -84,21 +93,6 @@ class JobList(CommonList):
                         self.append(JobItem(job).data_bind(JobList.time_clock))
         self.focus()
 
-    @work
-    async def action_new_job(self):
-        job = await self.app.push_screen_wait(JobScreen())
-        log('JobScreen was dismissed.')
-        if job:
-            log(f'New Job created {job}')
-            with Database() as db:
-                db.jobs.save(job)
-                if self.time_clock:
-                    db.clock.save(self.time_clock.clock_in(job.id))
-                else:
-                    db.clock.save(db.clock.today().clock_in(job.id))
-            self.post_message(UpdateClock())
-            self.post_message(UpdateJobs())
-
     async def action_delete_job(self):
         if self.index is not None:
             job = self.highlighted_child
@@ -108,5 +102,4 @@ class JobList(CommonList):
             if len(self.children) == 0:
                 self.append(EmptyJobItem())
                 self.has_empty = True
-            self.post_message(UpdateJobs())
-            self.post_message(UpdateClock())
+            self.post_message(UpdateDB())

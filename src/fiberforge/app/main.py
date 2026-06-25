@@ -1,17 +1,18 @@
-from typing import Optional
+from typing import Any, Optional
 
-from textual import on, work
+from textual import log, on, work
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.reactive import reactive
 from textual.screen import Screen
 from textual.widgets import Footer, ListView
 
+from fiberforge.app.screens.job_screen import JobScreen
 from fiberforge.models import TimeClock
 from fiberforge.models.ids import JobId
 from fiberforge.persistence import Database
 
-from .messages import UpdateClock, UpdateJobs
+from .messages import UpdateDB, UpdateDetail
 from .panels.details import Details
 from .panels.job_details import JobDetails
 from .panels.job_list import JobItem, JobList
@@ -43,12 +44,28 @@ class MainScreen(Screen):
                 yield RunList()
             yield Details()
 
-    @on(UpdateJobs)
-    @on(UpdateClock)
-    def update_db(self, _: UpdateClock):
+    @on(UpdateDB)
+    def update_db(self, _: Any = None):
         with Database() as db:
             self.time_clock = db.clock.today()
             self.jobs = db.jobs.load()
+
+    @on(UpdateDetail)
+    async def update_detail(self, update: UpdateDetail):
+        self.query_one(Details).set_widget(update.widget)
+
+    @on(JobScreen.NewJob)
+    async def new_job(self, new_job: JobScreen.NewJob):
+        job = new_job.job
+        if job:
+            log(f'New Job created {job}')
+            with Database() as db:
+                db.jobs.save(job)
+                if self.time_clock:
+                    db.clock.save(self.time_clock.clock_in(job.id))
+                else:
+                    db.clock.save(db.clock.today().clock_in(job.id))
+            self.update_db()
 
     @work
     async def action_request_quit(self):
@@ -58,7 +75,9 @@ class MainScreen(Screen):
 
     async def on_list_view_selected(self, selected: ListView.Selected):
         if isinstance(selected.item, JobItem):
-            self.query_one(JobDetails).job = selected.item.job
+            job_details = self.query_one(JobDetails)
+            job_details.job = selected.item.job
+            job_details.focus()
 
 
 class FiberForge(App):
