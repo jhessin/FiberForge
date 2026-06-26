@@ -105,6 +105,21 @@ class Database(AbstractContextManager):
                 )
             self.db.conn.commit()
 
+        def update(self, start: datetime, span: TimeSpan):
+            self.db.cursor.execute(
+                """
+                UPDATE TimeClock
+                SET start = ?, end = ?
+                WHERE start = ?
+                """,
+                (
+                    span.start.isoformat(),
+                    span.end.isoformat() if span.end else None,
+                    start,
+                ),
+            )
+            self.db.conn.commit()
+
         def today(self) -> TimeClock:
             spans: list[TimeSpan] = []
             self.db.cursor.execute(

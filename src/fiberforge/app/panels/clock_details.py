@@ -1,14 +1,53 @@
+import re
+from datetime import datetime
+
+from textual import on
 from textual.app import ComposeResult
 from textual.reactive import reactive
-from textual.widgets import Static
+from textual.widgets import Input, Static
 
-from fiberforge.models.time_clock import TimeClock
+from fiberforge.app.messages import UpdateDB
+from fiberforge.models.time_clock import TimeClock, TimeSpan
+from fiberforge.persistence.database import Database
 
 
 class CommandLine(Static):
     """
     This will contain an input that will accept commands to modify the associated span.
     """
+
+    def __init__(self, span: TimeSpan) -> None:
+        super().__init__()
+        self.span: TimeSpan = span
+
+    def compose(self) -> ComposeResult:
+        yield Input()
+
+    @on(Input.Submitted)
+    def process_cmd(self, cmd: Input.Submitted):
+        original_start = self.span.start
+        COMMAND_RE = re.compile(r'^(start|end)=(.+)$')
+        m = COMMAND_RE.match(cmd.input.value)
+        if not m:
+            return
+        key, value = m.groups()
+        with Database() as db:
+            match key:
+                case 'start':
+                    new_span = TimeSpan(
+                        start=datetime.fromisoformat(value),
+                        job_id=self.span.job_id,
+                        end=self.span.end,
+                    )
+                    db.clock.update(original_start, new_span)
+                case 'end':
+                    new_span = TimeSpan(
+                        start=self.span.start,
+                        job_id=self.span.job_id,
+                        end=datetime.fromisoformat(value),
+                    )
+                    db.clock.update(original_start, new_span)
+        self.post_message(UpdateDB())
 
 
 class ClockDetails(Static):
@@ -19,6 +58,7 @@ class ClockDetails(Static):
             for span in self.clock.time_spans:
                 yield Static(f"""
                 [b]{span.job_id}[/b]
-                start: {span.start.ctime()}
-                end: {span.end.ctime() if span.end else 'open'}
+                start: {span.start.isoformat()}
+                end: {span.end.isoformat() if span.end else 'open'}
                 """)
+                yield CommandLine(span)
