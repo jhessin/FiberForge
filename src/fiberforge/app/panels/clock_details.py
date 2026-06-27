@@ -3,8 +3,9 @@ from datetime import datetime
 
 from textual import on
 from textual.app import ComposeResult
+from textual.containers import HorizontalGroup
 from textual.reactive import reactive
-from textual.widgets import Input, Static
+from textual.widgets import Button, Input, Static
 
 from fiberforge.app.messages import UpdateDB
 from fiberforge.models.time_clock import TimeClock, TimeSpan
@@ -21,8 +22,17 @@ class CommandLine(Static):
         self.span: TimeSpan = span
 
     def compose(self) -> ComposeResult:
-        yield Input()
-        yield Static(id='output')
+        with HorizontalGroup():
+            yield Button('🗑️', id='delete')
+            yield Input()
+            yield Static(id='output')
+
+    @on(Button.Pressed, '#delete')
+    def delete_time(self, event: Button.Pressed):
+        with Database() as db:
+            db.clock.delete(self.span)
+        self.post_message(UpdateDB())
+        event.stop()
 
     @on(Input.Submitted)
     def process_cmd(self, cmd: Input.Submitted):
