@@ -115,7 +115,7 @@ class Database(AbstractContextManager):
                 (
                     span.start.isoformat(),
                     span.end.isoformat() if span.end else None,
-                    start,
+                    start.isoformat(),
                 ),
             )
             self.db.conn.commit()

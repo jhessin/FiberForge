@@ -22,6 +22,7 @@ class CommandLine(Static):
 
     def compose(self) -> ComposeResult:
         yield Input()
+        yield Static(id='output')
 
     @on(Input.Submitted)
     def process_cmd(self, cmd: Input.Submitted):
@@ -29,6 +30,8 @@ class CommandLine(Static):
         COMMAND_RE = re.compile(r'^(start|end)=(.+)$')
         m = COMMAND_RE.match(cmd.input.value)
         if not m:
+            self.query_one('#output', Static).update('Invalid input')
+            cmd.input.value = ''
             return
         key, value = m.groups()
         with Database() as db:
@@ -40,6 +43,10 @@ class CommandLine(Static):
                         end=self.span.end,
                     )
                     db.clock.update(original_start, new_span)
+                    self.query_one('#output', Static).update(
+                        f'New start time updated to {new_span.start.isoformat()}'
+                    )
+                    cmd.input.value = ''
                 case 'end':
                     new_span = TimeSpan(
                         start=self.span.start,
@@ -47,6 +54,12 @@ class CommandLine(Static):
                         end=datetime.fromisoformat(value),
                     )
                     db.clock.update(original_start, new_span)
+                    self.query_one('#output', Static).update(
+                        f'New end time updated to {
+                            new_span.end.isoformat() if new_span.end else None
+                        }'
+                    )
+                    cmd.input.value = ''
         self.post_message(UpdateDB())
 
 
