@@ -1,9 +1,7 @@
-from fiberforge.models import FiberRun, Filter, Span
-from models import MeasuredSpan
+from fiberforge.models import FiberRun, Filter, MeasuredSpan, Span
 
 
 class LengthService:
-
     @staticmethod
     def total(run: FiberRun) -> int:
         return sum(sum(seg.lengths) for span in run.spans for seg in span.spans)

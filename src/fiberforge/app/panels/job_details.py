@@ -1,11 +1,14 @@
 from typing import Optional
 
+from textual import on
 from textual.app import ComposeResult
 from textual.containers import HorizontalGroup, VerticalGroup
 from textual.message import Message
 from textual.reactive import reactive
 from textual.widgets import Button, Label, Static
 
+from fiberforge.app.messages import UpdateDetail
+from fiberforge.app.screens.meta_screen import MetaScreen
 from fiberforge.app.widgets.utils import FocusButton
 from fiberforge.models.job import Job
 
@@ -39,3 +42,7 @@ class JobDetails(Static):
                     with VerticalGroup(id='cfatgroup'):
                         yield Button('View CFAT info', disabled=self.job.cfat is None)
                         yield Button('Edit CFAT' if self.job.cfat else 'Create CFAT')
+
+    @on(Button.Pressed, '#editmetabutton')
+    def edit_meta(self):
+        self.post_message(UpdateDetail(MetaScreen().data_bind(JobDetails.job)))
