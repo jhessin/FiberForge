@@ -1,5 +1,5 @@
 import re
-from datetime import datetime
+from datetime import date, datetime, time
 
 from textual import on
 from textual.app import ComposeResult
@@ -29,6 +29,7 @@ class CommandLine(Static):
 
     @on(Button.Pressed, '#delete')
     def delete_time(self, event: Button.Pressed):
+        self.log.debug(f'deleting time: {self.span.start.isoformat()}')
         with Database() as db:
             db.clock.delete(self.span)
         self.post_message(UpdateDB())
@@ -47,29 +48,43 @@ class CommandLine(Static):
         with Database() as db:
             match key:
                 case 'start':
-                    new_span = TimeSpan(
-                        start=datetime.fromisoformat(value),
-                        job_id=self.span.job_id,
-                        end=self.span.end,
-                    )
-                    db.clock.update(original_start, new_span)
-                    self.query_one('#output', Static).update(
-                        f'New start time updated to {new_span.start.isoformat()}'
-                    )
-                    cmd.input.value = ''
+                    try:
+                        start: datetime
+                        start = datetime.fromisoformat(value)
+                    except ValueError:
+                        start = datetime.combine(
+                            date.today(), time.fromisoformat(value)
+                        )
+                    if start:
+                        new_span = TimeSpan(
+                            start=start,
+                            job_id=self.span.job_id,
+                            end=self.span.end,
+                        )
+                        db.clock.update(original_start, new_span)
+                        self.query_one('#output', Static).update(
+                            f'New start time updated to {new_span.start.isoformat()}'
+                        )
+                        cmd.input.value = ''
                 case 'end':
-                    new_span = TimeSpan(
-                        start=self.span.start,
-                        job_id=self.span.job_id,
-                        end=datetime.fromisoformat(value),
-                    )
-                    db.clock.update(original_start, new_span)
-                    self.query_one('#output', Static).update(
-                        f'New end time updated to {
-                            new_span.end.isoformat() if new_span.end else None
-                        }'
-                    )
-                    cmd.input.value = ''
+                    try:
+                        end: datetime
+                        end = datetime.fromisoformat(value)
+                    except ValueError:
+                        end = datetime.combine(date.today(), time.fromisoformat(value))
+                    if end:
+                        new_span = TimeSpan(
+                            start=self.span.start,
+                            job_id=self.span.job_id,
+                            end=end,
+                        )
+                        db.clock.update(original_start, new_span)
+                        self.query_one('#output', Static).update(
+                            f'New end time updated to {
+                                new_span.end.isoformat() if new_span.end else None
+                            }'
+                        )
+                        cmd.input.value = ''
         self.post_message(UpdateDB())
 
 

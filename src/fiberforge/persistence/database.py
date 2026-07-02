@@ -124,6 +124,7 @@ class Database(AbstractContextManager):
             self.db.cursor.execute(
                 'DELETE FROM TimeClock WHERE start = ?', (span.start.isoformat(),)
             )
+            self.db.conn.commit()
 
         def today(self) -> TimeClock:
             spans: list[TimeSpan] = []
