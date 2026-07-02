@@ -5,10 +5,12 @@ from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.reactive import reactive
 from textual.widget import Widget
-from textual.widgets import Button, Input, OptionList, Static
+from textual.widgets import Button, Input, Label, OptionList, Static
+from textual.widgets.option_list import Option
 
 from fiberforge.app.widgets.smart_input import SmartInput
-from fiberforge.models.job import Job
+from fiberforge.app.widgets.utils import FocusInput
+from fiberforge.models.job import Job, JobType
 from fiberforge.persistence.database import Database
 
 # class JobMeta(Serializable):
@@ -34,11 +36,38 @@ class MetaScreen(Widget):
     def compose(self) -> ComposeResult:
         with Vertical():
             yield Static(f"Job ID = {self.job.id.value if self.job else 'None'}")
-            yield OptionList(
-                'Asbuilt',
-                'Design',
-            )
+            with Horizontal():
+                yield Label('Job Type:')
+                yield OptionList(
+                    Option('Asbuilt', id='asbuilt'),
+                    Option('Design', id='design'),
+                    id='job_type',
+                )
+            if (
+                self.job
+                and self.job.meta
+                and isinstance(self.job.meta.job_type, JobType.DESIGN)
+            ):
+                yield SmartInput(
+                    label='Revision Number',
+                    id='revision_number',
+                    value=self.job.meta.job_type.revision_number,
+                    type='number',
+                )
+            with Horizontal():
+                yield Label('Region:')
+                yield OptionList(
+                    Option('MWR', id='region_mwr'),
+                    Option('HOUSTON', id='region_houston'),
+                    Option('BSR', id='region_bsr'),
+                    id='region',
+                )
             yield SmartInput(
+                label='Folder:',
+                id='folder',
+                placeholder='Enter the folder name.',
+            )
+            yield FocusInput(
                 label='Task Name:', id='task_name', placeholder='Enter the task name'
             )
             yield SmartInput(
@@ -67,10 +96,15 @@ class MetaScreen(Widget):
             with Database() as db:
                 self.job = db.jobs.by_id(self.job.id.value)
 
+    @on(OptionList.OptionSelected)
+    def option_selected(self, data: OptionList.OptionSelected):
+        """TODO: Parse all the options from the OptionList fields"""
+
     @on(Input.Submitted)
     @on(Button.Pressed, '#save')
     def save(self, data: Input.Submitted | Button.Pressed):
-        pass
+        """TODO: parse the information from the submitted field, or from all
+        fields."""
 
     @on(Button.Pressed, '#cancel')
     def action_cancel(self):
