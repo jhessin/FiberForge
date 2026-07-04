@@ -55,7 +55,7 @@ JobScreen {
 
 }
 
-MetaScreen {
+MetaScreen, NetworkScreen, CfatScreen {
   align: center middle;
 
   Button {

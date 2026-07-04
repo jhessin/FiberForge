@@ -63,7 +63,7 @@ class JobPhase(Enum):
 @dataclass(frozen=True)
 class JobMeta(Serializable):
     job_type: JobType
-    region: JobRegion
+    region: JobRegion.BSR | JobRegion.HOUSTON | JobRegion.MWR
     task_name: str
     company_name: str
     address: str
@@ -95,11 +95,11 @@ class JobMeta(Serializable):
 
 @dataclass(frozen=True)
 class CfatSpec(Serializable):
-    mux_id: MuxId
-    distance_to_hub: int
-    bandwidth: Literal[1, 10, 100]
-    preterm: str
-    ext_id: str
+    mux_id: MuxId = MuxId('')
+    distance_to_hub: int = 0
+    bandwidth: Literal[1, 10, 100] = 1
+    preterm: str = ''
+    ext_id: str = ''
 
     @staticmethod
     def is_needed(meta: JobMeta) -> list[str]:

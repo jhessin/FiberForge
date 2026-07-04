@@ -9,7 +9,6 @@ from textual.widgets import Button, Input, Label, OptionList, Static
 from textual.widgets.option_list import Option
 
 from fiberforge.app.widgets.smart_input import SmartInput
-from fiberforge.app.widgets.utils import FocusInput
 from fiberforge.models.job import Job, JobType
 from fiberforge.persistence.database import Database
 
@@ -27,13 +26,28 @@ from fiberforge.persistence.database import Database
 
 class MetaScreen(Widget):
     BINDINGS = [
-        ('enter', 'submit', 'Save Job'),
+        ('enter', 'submit', 'Save Meta'),
         ('escape', 'cancel', 'Cancel'),
     ]
 
     job: reactive[Optional[Job]] = reactive(None, recompose=True)
 
     def compose(self) -> ComposeResult:
+        """Compose the component here."""
+        # TODO: Use the existing values to fill each input field in
+        # meta/network/cfat screens
+        folder = ''
+        task_name = ''
+        company_name = ''
+        address = ''
+        lat = ''
+        long = ''
+        clli = ''
+        notes = ''
+
+        if (job := self.job) and (meta := job.meta):
+            folder = meta.region.folder
+            task_name = meta.task_name
         with Vertical():
             yield Static(f"Job ID = {self.job.id.value if self.job else 'None'}")
             with Horizontal():
@@ -67,7 +81,7 @@ class MetaScreen(Widget):
                 id='folder',
                 placeholder='Enter the folder name.',
             )
-            yield FocusInput(
+            yield SmartInput(
                 label='Task Name:', id='task_name', placeholder='Enter the task name'
             )
             yield SmartInput(

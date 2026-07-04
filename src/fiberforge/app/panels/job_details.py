@@ -8,7 +8,9 @@ from textual.reactive import reactive
 from textual.widgets import Button, Label, Static
 
 from fiberforge.app.messages import UpdateDetail
+from fiberforge.app.screens.cfat_screen import CfatScreen
 from fiberforge.app.screens.meta_screen import MetaScreen
+from fiberforge.app.screens.network_screen import NetworkScreen
 from fiberforge.app.widgets.utils import FocusButton
 from fiberforge.models.job import Job
 
@@ -31,18 +33,31 @@ class JobDetails(Static):
                             id='editmetabutton',
                         )
                     with VerticalGroup(id='networkgroup'):
+                        yield Button('View Network', disabled=self.job.network is None)
                         yield Button(
-                            'View Network Info', disabled=self.job.network is None
-                        )
-                        yield Button(
-                            'Edit Network info'
+                            'Edit Network'
                             if self.job.network
-                            else 'Create Network Info'
+                            else 'Create Network Info',
+                            id='editnetwork',
                         )
                     with VerticalGroup(id='cfatgroup'):
-                        yield Button('View CFAT info', disabled=self.job.cfat is None)
-                        yield Button('Edit CFAT' if self.job.cfat else 'Create CFAT')
+                        yield Button('View CFAT', disabled=self.job.cfat is None)
+                        yield Button(
+                            'Edit CFAT' if self.job.cfat else 'Create CFAT',
+                            id='editcfat',
+                        )
 
     @on(Button.Pressed, '#editmetabutton')
     def edit_meta(self):
+        """Edit the meta spec"""
         self.post_message(UpdateDetail(MetaScreen().data_bind(JobDetails.job)))
+
+    @on(Button.Pressed, '#editnetwork')
+    def edit_network(self):
+        """Edit the network spec"""
+        self.post_message(UpdateDetail(NetworkScreen().data_bind(JobDetails.job)))
+
+    @on(Button.Pressed, '#editcfat')
+    def edit_cfat(self):
+        """Edit the network spec"""
+        self.post_message(UpdateDetail(CfatScreen().data_bind(JobDetails.job)))
