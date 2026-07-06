@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Iterable, Literal, Optional
+from typing import Literal, Optional
 
 from .common import Serializable
 from .ids import DeviceId, JobId, MuxId, SpanId
@@ -62,11 +62,11 @@ class JobPhase(Enum):
 
 @dataclass(frozen=True)
 class JobMeta(Serializable):
-    job_type: JobType
-    region: JobRegion.BSR | JobRegion.HOUSTON | JobRegion.MWR
-    task_name: str
-    company_name: str
-    address: str
+    job_type: JobType | None = None
+    region: JobRegion.BSR | JobRegion.HOUSTON | JobRegion.MWR | None = None
+    task_name: str = ''
+    company_name: str = ''
+    address: str = ''
     lat: str = ''
     long: str = ''
     clli: str = ''
@@ -117,11 +117,11 @@ class CfatSpec(Serializable):
 
 @dataclass(frozen=True)
 class NetworkSpec(Serializable):
-    nodes: Iterable[str] = field(default_factory=tuple)
+    nodes: tuple[str, ...] = field(default_factory=tuple)
     segment: Optional[str] = None
-    hubs: Iterable[str] = field(default_factory=tuple)
-    endsites: Iterable[DeviceId] = field(default_factory=tuple)
-    removing: Iterable[DeviceId | SpanId] = field(default_factory=tuple)
+    hubs: tuple[str, ...] = field(default_factory=tuple)
+    endsites: tuple[DeviceId, ...] = field(default_factory=tuple)
+    removing: tuple[DeviceId | SpanId, ...] = field(default_factory=tuple)
 
 
 # ---------------------------------------------------------------------------

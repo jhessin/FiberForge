@@ -34,68 +34,79 @@ class CfatScreen(Widget):
     def compose(self) -> ComposeResult:
         """Compose the component here."""
         # Front load all the listed items
-        mux_item: Static = Static()
-        distance_item: Static = Static()
-        bandwidth_item: Static = Static()
-        preterm_item: Static = Static()
-        ext_id_item: Static = Static()
+        mux: str = ''
+        distance: int = 0
+        bandwidth: int = 0
+        preterm: str = ''
+        ext_id: str = ''
 
         if (job := self.job) and (cfat := job.cfat):
-            mux_item = (
-                Static(cfat.mux_id.value) if cfat.mux_id.value else Static('No Mux')
-            )
-            distance_item = (
-                Static(str(cfat.distance_to_hub))
-                if cfat.distance_to_hub
-                else Static('No Distance Specified')
-            )
-            bandwidth_item = Static(str(cfat.bandwidth))
-            preterm_item = (
-                Static(cfat.preterm) if cfat.preterm else Static('No Preterm Specified')
-            )
-            ext_id_item = (
-                Static(cfat.ext_id) if cfat.ext_id else Static('No EXT_ID Specified')
-            )
+            mux = (cfat.mux_id.value) if cfat.mux_id.value else ''
+            distance = cfat.distance_to_hub
+            bandwidth = cfat.bandwidth
+            preterm = cfat.preterm
+            ext_id = cfat.ext_id
 
         with Vertical():
             yield Static(f"Job ID = {self.job.id.value if self.job else 'None'}")
 
             yield Static('MUX:')
-            yield mux_item
             yield SmartInput(
                 label='Mux:',
+                types=[
+                    SmartInput.Type.Input,
+                    SmartInput.Type.Output,
+                ],
                 id='mux',
+                value=mux,
                 placeholder='Mux by id',
             )
 
             yield Static('DISTANCE TO HUB:')
-            yield distance_item
             yield SmartInput(
                 label='Distance:',
                 id='distance_to_hub',
+                value=str(distance),
                 placeholder='Enter the discance from hub to endsite',
+                type='number',
+                types=[
+                    SmartInput.Type.Input,
+                    SmartInput.Type.Output,
+                ],
             )
             yield Static('BANDWIDTH:')
-            yield bandwidth_item
             yield SmartInput(
                 label='Bandwidth:',
                 id='bandwidth',
+                value=str(bandwidth),
                 placeholder='Enter the bandwidth required',
                 type='number',
+                types=[
+                    SmartInput.Type.Input,
+                    SmartInput.Type.Output,
+                ],
             )
             yield Static('PRETERM:')
-            yield preterm_item
             yield SmartInput(
                 label='Preterm:',
                 id='preterm',
+                value=preterm,
                 placeholder='Enter the preterm',
+                types=[
+                    SmartInput.Type.Input,
+                    SmartInput.Type.Output,
+                ],
             )
             yield Static('EXT_ID:')
-            yield ext_id_item
             yield SmartInput(
                 label='EXT_ID:',
                 id='ext_id',
+                value=ext_id,
                 placeholder='Enter the ext_id from EP',
+                types=[
+                    SmartInput.Type.Input,
+                    SmartInput.Type.Output,
+                ],
             )
             with Horizontal():
                 yield Button('Save', id='save', variant='primary')

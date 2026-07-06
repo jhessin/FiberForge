@@ -34,18 +34,66 @@ class NetworkScreen(Widget):
     def compose(self) -> ComposeResult:
         """Compose the component here."""
         # Front load all the listed items
-        node_list: list[Static] = []
+        node_list: list[SmartInput] = []
         segment: str = ''
-        hub_list: list[Static] = []
-        endsite_list: list[Static] = []
-        removing_list: list[Static] = []
+        hub_list: list[SmartInput] = []
+        endsite_list: list[SmartInput] = []
+        removing_list: list[SmartInput] = []
 
         if (job := self.job) and (network := job.network):
-            node_list = [Static(node) for node in network.nodes]
+            node_list = [
+                SmartInput(
+                    label=str(i),
+                    id=f'node{i}',
+                    value=network.nodes[i],
+                    types=[
+                        SmartInput.Type.Input,
+                        SmartInput.Type.Output,
+                        SmartInput.Type.Delete,
+                    ],
+                )
+                for i in range(len(network.nodes))
+            ]
             segment = network.segment if network.segment else ''
-            hub_list = [Static(hub) for hub in network.hubs]
-            endsite_list = [Static(endsite.value) for endsite in network.endsites]
-            removing_list = [Static(removing.value) for removing in network.removing]
+            hub_list = [
+                SmartInput(
+                    label=str(i),
+                    id=f'hub{i}',
+                    value=network.hubs[i],
+                    types=[
+                        SmartInput.Type.Input,
+                        SmartInput.Type.Output,
+                        SmartInput.Type.Delete,
+                    ],
+                )
+                for i in range(len(network.hubs))
+            ]
+            endsite_list = [
+                SmartInput(
+                    label=str(i),
+                    id=f'endsite{i}',
+                    value=network.endsites[i],
+                    types=[
+                        SmartInput.Type.Input,
+                        SmartInput.Type.Output,
+                        SmartInput.Type.Delete,
+                    ],
+                )
+                for i in range(len(network.endsites))
+            ]
+            removing_list = [
+                SmartInput(
+                    label=str(i),
+                    id=f'removing{i}',
+                    value=network.removing[i],
+                    types=[
+                        SmartInput.Type.Input,
+                        SmartInput.Type.Output,
+                        SmartInput.Type.Delete,
+                    ],
+                )
+                for i in range(len(network.removing))
+            ]
 
         with Vertical():
             yield Static(f"Job ID = {self.job.id.value if self.job else 'None'}")
@@ -64,6 +112,11 @@ class NetworkScreen(Widget):
                 label='Segment',
                 value=segment,
                 id='segment',
+                placeholder='Enter segment name',
+                types=[
+                    SmartInput.Type.Input,
+                    SmartInput.Type.Output,
+                ],
             )
 
             yield Static('HUBS:')

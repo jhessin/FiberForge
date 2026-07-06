@@ -34,8 +34,6 @@ class MetaScreen(Widget):
 
     def compose(self) -> ComposeResult:
         """Compose the component here."""
-        # TODO: Use the existing values to fill each input field in
-        # meta/network/cfat screens
         folder = ''
         task_name = ''
         company_name = ''
@@ -46,8 +44,15 @@ class MetaScreen(Widget):
         notes = ''
 
         if (job := self.job) and (meta := job.meta):
-            folder = meta.region.folder
+            folder = meta.region.folder if meta.region else ''
             task_name = meta.task_name
+            company_name = meta.company_name
+            address = meta.address
+            lat = meta.lat
+            long = meta.long
+            clli = meta.clli
+            notes = meta.notes
+
         with Vertical():
             yield Static(f"Job ID = {self.job.id.value if self.job else 'None'}")
             with Horizontal():
@@ -79,28 +84,45 @@ class MetaScreen(Widget):
             yield SmartInput(
                 label='Folder:',
                 id='folder',
+                value=folder,
                 placeholder='Enter the folder name.',
             )
             yield SmartInput(
-                label='Task Name:', id='task_name', placeholder='Enter the task name'
+                label='Task Name:',
+                id='task_name',
+                value=task_name,
+                placeholder='Enter the task name',
             )
             yield SmartInput(
                 label='Company Name:',
                 id='company_name',
+                value=company_name,
                 placeholder='Enter the company name',
             )
             yield SmartInput(
-                label='Address', id='address', placeholder='Enter the address'
+                label='Address',
+                id='address',
+                value=address,
+                placeholder='Enter the address',
             )
             yield SmartInput(
                 label='Lat/Long:',
                 id='latlong',
+                value=f'{lat}, {long}',
                 placeholder='Enter the latitude and longitude',
             )
             yield SmartInput(
-                label='CLLI:', id='clli', placeholder='Enter the clli code.'
+                label='CLLI:',
+                id='clli',
+                value=clli,
+                placeholder='Enter the clli code.',
             )
-            yield SmartInput(label='Notes:', id='notes', placeholder='Enter any notes')
+            yield SmartInput(
+                label='Notes:',
+                id='notes',
+                value=notes,
+                placeholder='Enter any notes',
+            )
             with Horizontal():
                 yield Button('Save', id='save', variant='primary')
                 yield Button('Cancel', id='cancel', variant='error')
