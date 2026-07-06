@@ -1,5 +1,5 @@
 from enum import Enum, auto
-from typing import Optional
+from typing import Iterable, Optional
 
 import pyperclip
 from textual import on
@@ -18,7 +18,7 @@ class SmartInput(Widget):
     def __init__(
         self,
         *,
-        types: list[Type] = [Type.Input],
+        types: Iterable[Type] = [Type.Input],
         label: Optional[str] = None,
         **input_kwargs,
     ) -> None:
@@ -28,7 +28,7 @@ class SmartInput(Widget):
         else:
             self.label = None
         self.input: Input = Input(**input_kwargs)
-        self.types: list[SmartInput.Type] = types
+        self.types: set[SmartInput.Type] = set(types)
 
     def compose(self) -> ComposeResult:
         with Horizontal():

@@ -10,7 +10,6 @@ from textual.widgets.option_list import Option
 
 from fiberforge.app.widgets.smart_input import SmartInput
 from fiberforge.models.job import Job, JobType
-from fiberforge.persistence.database import Database
 
 # class JobMeta(Serializable):
 #     job_type: JobType
@@ -86,51 +85,74 @@ class MetaScreen(Widget):
                 id='folder',
                 value=folder,
                 placeholder='Enter the folder name.',
+                types=(
+                    SmartInput.Type.Input,
+                    SmartInput.Type.Output,
+                ),
             )
             yield SmartInput(
                 label='Task Name:',
                 id='task_name',
                 value=task_name,
                 placeholder='Enter the task name',
+                types=(
+                    SmartInput.Type.Input,
+                    SmartInput.Type.Output,
+                ),
             )
             yield SmartInput(
                 label='Company Name:',
                 id='company_name',
                 value=company_name,
                 placeholder='Enter the company name',
+                types=(
+                    SmartInput.Type.Input,
+                    SmartInput.Type.Output,
+                ),
             )
             yield SmartInput(
                 label='Address',
                 id='address',
                 value=address,
                 placeholder='Enter the address',
+                types=(
+                    SmartInput.Type.Input,
+                    SmartInput.Type.Output,
+                ),
             )
             yield SmartInput(
                 label='Lat/Long:',
                 id='latlong',
-                value=f'{lat}, {long}',
+                value=f'{lat}, {long}' if lat or long else '',
                 placeholder='Enter the latitude and longitude',
+                types=(
+                    SmartInput.Type.Input,
+                    SmartInput.Type.Output,
+                ),
             )
             yield SmartInput(
                 label='CLLI:',
                 id='clli',
                 value=clli,
                 placeholder='Enter the clli code.',
+                types=(
+                    SmartInput.Type.Input,
+                    SmartInput.Type.Output,
+                ),
             )
             yield SmartInput(
                 label='Notes:',
                 id='notes',
                 value=notes,
                 placeholder='Enter any notes',
+                types=(
+                    SmartInput.Type.Input,
+                    SmartInput.Type.Output,
+                ),
             )
             with Horizontal():
                 yield Button('Save', id='save', variant='primary')
                 yield Button('Cancel', id='cancel', variant='error')
-
-    def update_job(self):
-        if self.job:
-            with Database() as db:
-                self.job = db.jobs.by_id(self.job.id.value)
 
     @on(OptionList.OptionSelected)
     def option_selected(self, data: OptionList.OptionSelected):

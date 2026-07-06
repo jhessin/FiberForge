@@ -9,7 +9,6 @@ from textual.widgets import Button, Input, Static
 
 from fiberforge.app.widgets.smart_input import SmartInput
 from fiberforge.models.job import Job
-from fiberforge.persistence.database import Database
 
 # class JobMeta(Serializable):
 #     job_type: JobType
@@ -148,11 +147,6 @@ class NetworkScreen(Widget):
             with Horizontal():
                 yield Button('Save', id='save', variant='primary')
                 yield Button('Cancel', id='cancel', variant='error')
-
-    def update_job(self):
-        if self.job:
-            with Database() as db:
-                self.job = db.jobs.by_id(self.job.id.value)
 
     @on(Input.Submitted)
     @on(Button.Pressed, '#save')
