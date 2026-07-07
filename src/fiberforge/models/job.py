@@ -16,15 +16,15 @@ from .ids import DeviceId, JobId, MuxId, SpanId
 class JobRegion(Serializable):
     @dataclass(frozen=True)
     class MWR(Serializable):
-        folder: str
+        folder: str = ''
 
     @dataclass(frozen=True)
     class BSR(Serializable):
-        folder: str
+        folder: str = ''
 
     @dataclass(frozen=True)
     class HOUSTON(Serializable):
-        folder: str
+        folder: str = 'HOUSTON'
 
 
 # ---------------------------------------------------------------------------

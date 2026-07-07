@@ -1,3 +1,4 @@
+from dataclasses import replace
 from typing import Optional
 
 from textual import on
@@ -8,8 +9,10 @@ from textual.widget import Widget
 from textual.widgets import Button, Input, Label, OptionList, Static
 from textual.widgets.option_list import Option
 
+from fiberforge.app.messages import UpdateDB
 from fiberforge.app.widgets.smart_input import SmartInput
-from fiberforge.models.job import Job, JobType
+from fiberforge.models.job import Job, JobMeta, JobRegion, JobType
+from fiberforge.persistence.database import Database
 
 # class JobMeta(Serializable):
 #     job_type: JobType
@@ -33,6 +36,8 @@ class MetaScreen(Widget):
 
     def compose(self) -> ComposeResult:
         """Compose the component here."""
+        job_type = ''
+        region = ''
         folder = ''
         task_name = ''
         company_name = ''
@@ -43,6 +48,16 @@ class MetaScreen(Widget):
         notes = ''
 
         if (job := self.job) and (meta := job.meta):
+            job_type = (
+                'asbuilt' if isinstance(meta.job_type, JobType.ASBUILT) else 'design'
+            )
+            region = (
+                'region_mwr'
+                if isinstance(meta.region, JobRegion.MWR)
+                else 'region_houston'
+                if isinstance(meta.region, JobRegion.HOUSTON)
+                else 'region_bsr'
+            )
             folder = meta.region.folder if meta.region else ''
             task_name = meta.task_name
             company_name = meta.company_name
@@ -56,11 +71,13 @@ class MetaScreen(Widget):
             yield Static(f"Job ID = {self.job.id.value if self.job else 'None'}")
             with Horizontal():
                 yield Label('Job Type:')
-                yield OptionList(
+                type_options = OptionList(
                     Option('Asbuilt', id='asbuilt'),
                     Option('Design', id='design'),
                     id='job_type',
                 )
+                type_options.highlighted = 1 if job_type == 'design' else 0
+                yield type_options
             if (
                 self.job
                 and self.job.meta
@@ -69,17 +86,25 @@ class MetaScreen(Widget):
                 yield SmartInput(
                     label='Revision Number',
                     id='revision_number',
-                    value=self.job.meta.job_type.revision_number,
+                    value=str(self.job.meta.job_type.revision_number),
                     type='number',
                 )
             with Horizontal():
                 yield Label('Region:')
-                yield OptionList(
+                region_options = OptionList(
                     Option('MWR', id='region_mwr'),
                     Option('HOUSTON', id='region_houston'),
                     Option('BSR', id='region_bsr'),
                     id='region',
                 )
+                region_options.highlighted = (
+                    1
+                    if region == 'region_houston'
+                    else 0
+                    if region == 'region_mwr'
+                    else 2
+                )
+                yield region_options
             yield SmartInput(
                 label='Folder:',
                 id='folder',
@@ -156,13 +181,34 @@ class MetaScreen(Widget):
 
     @on(OptionList.OptionSelected)
     def option_selected(self, data: OptionList.OptionSelected):
-        """TODO: Parse all the options from the OptionList fields"""
+        """Parse all the options from the OptionList fields"""
+        assert self.job, 'job should be assigned by now.'
+        meta = self.job.meta or JobMeta()
+        if data.control.id == 'region':
+            new_meta = replace(
+                meta,
+                region=JobRegion.BSR()
+                if data.option_id == 'region_bsr'
+                else JobRegion.HOUSTON()
+                if data.option_id == 'region_houston'
+                else JobRegion.MWR(),
+            )
+        else:
+            new_meta = replace(
+                meta,
+                job_type=JobType.ASBUILT()
+                if data.option_id == 'asbuilt'
+                else JobType.DESIGN(),
+            )
+        with Database() as db:
+            db.jobs.save(replace(self.job, meta=new_meta))
 
     @on(Input.Submitted)
     @on(Button.Pressed, '#save')
     def save(self, data: Input.Submitted | Button.Pressed):
-        """TODO: parse the information from the submitted field, or from all
-        fields."""
+        """Parse the information from the submitted field, or from all fields."""
+        # TODO:
+        self.post_message(UpdateDB())
 
     @on(Button.Pressed, '#cancel')
     def action_cancel(self):
