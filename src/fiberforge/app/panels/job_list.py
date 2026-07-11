@@ -88,7 +88,7 @@ class JobList(CommonList):
             self.has_empty = False
             with Database() as db:
                 for job_id in self.jobs:
-                    job = db.jobs.by_id(job_id.value)
+                    job = db.jobs.by_id(job_id)
                     if job:
                         self.append(JobItem(job).data_bind(JobList.time_clock))
         self.focus()
@@ -98,7 +98,7 @@ class JobList(CommonList):
             job = self.highlighted_child
             if isinstance(job, JobItem):
                 with Database() as db:
-                    db.jobs.delete(job.job.id.value)
+                    db.jobs.delete(job.job.id)
             if len(self.children) == 0:
                 self.append(EmptyJobItem())
                 self.has_empty = True

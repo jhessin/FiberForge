@@ -26,6 +26,8 @@ class JobRegion(Serializable):
     class HOUSTON(Serializable):
         folder: str = 'HOUSTON'
 
+    type Type = MWR | BSR | HOUSTON
+
 
 # ---------------------------------------------------------------------------
 # Job Type (simple enum for now)
@@ -41,6 +43,8 @@ class JobType(Serializable):
     @dataclass(frozen=True)
     class DESIGN:
         revision_number: int = 0
+
+    type Type = ASBUILT | DESIGN
 
 
 # ---------------------------------------------------------------------------
@@ -62,8 +66,8 @@ class JobPhase(Enum):
 
 @dataclass(frozen=True)
 class JobMeta(Serializable):
-    job_type: JobType | None = None
-    region: JobRegion.BSR | JobRegion.HOUSTON | JobRegion.MWR | None = None
+    job_type: JobType.Type | None = None
+    region: JobRegion.Type | None = None
     task_name: str = ''
     company_name: str = ''
     address: str = ''

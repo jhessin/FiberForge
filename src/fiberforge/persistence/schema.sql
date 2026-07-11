@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS "Jobs" (
   "data" BLOB NOT NULL,
   "version" INTEGER NOT NULL DEFAULT '1',
   FOREIGN KEY ("id") REFERENCES "TimeClock"("job_id"),
+  FOREIGN KEY ("id") REFERENCES "TimeClockArchive"("job_id"),
   FOREIGN KEY ("id") REFERENCES "Runs"("job_id")
 );
 

@@ -6,12 +6,22 @@ from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.reactive import reactive
 from textual.widget import Widget
-from textual.widgets import Button, Input, Label, OptionList, Static
-from textual.widgets.option_list import Option
+from textual.widgets import (
+    Button,
+    Input,
+    Label,
+    Select,
+    Static,
+)
 
 from fiberforge.app.messages import UpdateDB
 from fiberforge.app.widgets.smart_input import SmartInput
-from fiberforge.models.job import Job, JobMeta, JobRegion, JobType
+from fiberforge.models.job import (
+    Job,
+    JobMeta,
+    JobRegion,
+    JobType,
+)
 from fiberforge.persistence.database import Database
 
 # class JobMeta(Serializable):
@@ -36,8 +46,8 @@ class MetaScreen(Widget):
 
     def compose(self) -> ComposeResult:
         """Compose the component here."""
-        job_type = ''
-        region = ''
+        job_type: JobType.Type | None = None
+        region: JobRegion.Type | None = None
         folder = ''
         task_name = ''
         company_name = ''
@@ -48,16 +58,8 @@ class MetaScreen(Widget):
         notes = ''
 
         if (job := self.job) and (meta := job.meta):
-            job_type = (
-                'asbuilt' if isinstance(meta.job_type, JobType.ASBUILT) else 'design'
-            )
-            region = (
-                'region_mwr'
-                if isinstance(meta.region, JobRegion.MWR)
-                else 'region_houston'
-                if isinstance(meta.region, JobRegion.HOUSTON)
-                else 'region_bsr'
-            )
+            job_type = meta.job_type
+            region = meta.region
             folder = meta.region.folder if meta.region else ''
             task_name = meta.task_name
             company_name = meta.company_name
@@ -68,16 +70,24 @@ class MetaScreen(Widget):
             notes = meta.notes
 
         with Vertical():
+            """Begin yielding the fields here"""
             yield Static(f"Job ID = {self.job.id.value if self.job else 'None'}")
+
             with Horizontal():
                 yield Label('Job Type:')
-                type_options = OptionList(
-                    Option('Asbuilt', id='asbuilt'),
-                    Option('Design', id='design'),
+                yield Select[JobType.Type](
+                    (
+                        ('ASBUILT', JobType.ASBUILT()),
+                        (
+                            'DESIGN',
+                            JobType.DESIGN()
+                            if not isinstance(job_type, JobType.DESIGN)
+                            else job_type,
+                        ),
+                    ),
+                    value=job_type or Select.NULL,
                     id='job_type',
                 )
-                type_options.highlighted = 1 if job_type == 'design' else 0
-                yield type_options
             if (
                 self.job
                 and self.job.meta
@@ -91,20 +101,30 @@ class MetaScreen(Widget):
                 )
             with Horizontal():
                 yield Label('Region:')
-                region_options = OptionList(
-                    Option('MWR', id='region_mwr'),
-                    Option('HOUSTON', id='region_houston'),
-                    Option('BSR', id='region_bsr'),
+                yield Select[JobRegion.Type](
+                    options=(
+                        (
+                            'MWR',
+                            region
+                            if isinstance(region, JobRegion.MWR)
+                            else JobRegion.MWR(),
+                        ),
+                        (
+                            'HOUSTON',
+                            region
+                            if isinstance(region, JobRegion.HOUSTON)
+                            else JobRegion.HOUSTON(),
+                        ),
+                        (
+                            'BSR',
+                            region
+                            if isinstance(region, JobRegion.BSR)
+                            else JobRegion.BSR(),
+                        ),
+                    ),
+                    value=region or Select.NULL,
                     id='region',
                 )
-                region_options.highlighted = (
-                    1
-                    if region == 'region_houston'
-                    else 0
-                    if region == 'region_mwr'
-                    else 2
-                )
-                yield region_options
             yield SmartInput(
                 label='Folder:',
                 id='folder',
@@ -179,36 +199,85 @@ class MetaScreen(Widget):
                 yield Button('Save', id='save', variant='primary')
                 yield Button('Cancel', id='cancel', variant='error')
 
-    @on(OptionList.OptionSelected)
-    def option_selected(self, data: OptionList.OptionSelected):
+    def on_mount(self):
+        """
+        All selection and customization of components should be done on_mount.
+        Use a Select widget for the Enums
+        Use a DataTable for lists in the meta screen.
+        REMINDER - Use a Tree for Runs
+        """
+        job_type: int = -1
+        if (job := self.job) and (meta := job.meta):
+            job_type = (
+                0
+                if isinstance(meta.job_type, JobType.ASBUILT)
+                else 1
+                if isinstance(meta.job_type, JobType.DESIGN)
+                else -1
+            )
+            region = (
+                'region_mwr'
+                if isinstance(meta.region, JobRegion.MWR)
+                else 'region_houston'
+                if isinstance(meta.region, JobRegion.HOUSTON)
+                else 'region_bsr'
+            )
+
+        # self.query_one('#job_type', RadioSet).pressed_index = job_type
+
+    def update_meta(self, meta: JobMeta):
+        assert self.job, 'job should be assigned by now.'
+        with Database() as db:
+            db.jobs.save(replace(self.job, meta=meta))
+        self.post_message(UpdateDB())
+
+    @on(Select.Changed)
+    def option_selected(self, data: Select.Changed):
         """Parse all the options from the OptionList fields"""
+        self.log.debug('Select.Changed has been successfully called')
         assert self.job, 'job should be assigned by now.'
         meta = self.job.meta or JobMeta()
         if data.control.id == 'region':
-            new_meta = replace(
-                meta,
-                region=JobRegion.BSR()
-                if data.option_id == 'region_bsr'
-                else JobRegion.HOUSTON()
-                if data.option_id == 'region_houston'
-                else JobRegion.MWR(),
-            )
+            meta = replace(meta, region=data.control.value)
         else:
-            new_meta = replace(
-                meta,
-                job_type=JobType.ASBUILT()
-                if data.option_id == 'asbuilt'
-                else JobType.DESIGN(),
-            )
-        with Database() as db:
-            db.jobs.save(replace(self.job, meta=new_meta))
+            meta = replace(meta, job_type=data.control.value)
+        self.update_meta(meta)
 
     @on(Input.Submitted)
     @on(Button.Pressed, '#save')
-    def save(self, data: Input.Submitted | Button.Pressed):
+    def save(self, data: Input.Submitted):
         """Parse the information from the submitted field, or from all fields."""
-        # TODO:
-        self.post_message(UpdateDB())
+        assert self.job, 'job should be assigned by now.'
+        meta: JobMeta = self.job.meta or JobMeta()
+        self.log.debug('save has been successfully called')
+        match data.control.id:
+            case 'revision_number':
+                if isinstance(meta.job_type, JobType.DESIGN):
+                    meta = replace(
+                        meta,
+                        job_type=replace(meta.job_type, revision_number=data.value),
+                    )
+            case 'folder':
+                if meta.region:
+                    meta = replace(meta, region=replace(meta.region, folder=data.value))
+            case 'task_name':
+                meta = replace(meta, task_name=data.value)
+            case 'company_name':
+                meta = replace(meta, company_name=data.value)
+            case 'address':
+                meta = replace(meta, address=data.value)
+            case 'latlong':
+                (lat, long) = data.value.split(',')
+                meta = replace(
+                    meta,
+                    lat=lat.strip(),
+                    long=long.strip(),
+                )
+            case 'clli':
+                meta = replace(meta, clli=data.value)
+            case 'notes':
+                meta = replace(meta, notes=data.value)
+        self.update_meta(meta)
 
     @on(Button.Pressed, '#cancel')
     def action_cancel(self):

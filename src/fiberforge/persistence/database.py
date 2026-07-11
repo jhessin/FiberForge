@@ -51,20 +51,24 @@ class Database(AbstractContextManager):
             """)
             job_id: Optional[str] = self.db.cursor.fetchone()
             if job_id:
-                return self.by_id(job_id)
+                return self.by_id(JobId(job_id))
             return None
 
-        def by_id(self, job_id: str) -> Optional[Job]:
-            self.db.cursor.execute('SELECT data FROM Jobs WHERE id = ?', (job_id,))
+        def by_id(self, job_id: JobId) -> Optional[Job]:
+            self.db.cursor.execute(
+                'SELECT data FROM Jobs WHERE id = ?', (job_id.value,)
+            )
             row: Optional[tuple[bytes]] = self.db.cursor.fetchone()
             if row is None:
                 return None
             return Job.from_binary(row[0])
 
-        def delete(self, job_id: str) -> None:
-            self.db.cursor.execute('DELETE FROM Jobs WHERE id = ?', (job_id,))
-            self.db.cursor.execute('DELETE FROM TimeClock WHERE job_id = ?', (job_id,))
-            self.db.cursor.execute('DELETE FROM Runs WHERE job_id = ?', (job_id,))
+        def delete(self, job_id: JobId) -> None:
+            self.db.cursor.execute('DELETE FROM Jobs WHERE id = ?', (job_id.value,))
+            self.db.cursor.execute(
+                'DELETE FROM TimeClock WHERE job_id = ?', (job_id.value,)
+            )
+            self.db.cursor.execute('DELETE FROM Runs WHERE job_id = ?', (job_id.value,))
             self.db.conn.commit()
 
     class Clock:

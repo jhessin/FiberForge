@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Optional
 
 from textual import log, on, work
 from textual.app import App, ComposeResult
@@ -45,10 +45,14 @@ class MainScreen(Screen):
             yield Details()
 
     @on(UpdateDB)
-    def update_db(self, _: Any = None):
+    def update_db(self, _: UpdateDB):
         with Database() as db:
             self.time_clock = db.clock.today()
             self.jobs = db.jobs.load()
+
+        job_details = self.query_one(JobDetails)
+        if job_details.job:
+            self.query_one(JobDetails).update_job(_)
 
     @on(UpdateDetail)
     async def update_detail(self, update: UpdateDetail):
@@ -65,7 +69,7 @@ class MainScreen(Screen):
                     db.clock.save(self.time_clock.clock_in(job.id))
                 else:
                     db.clock.save(db.clock.today().clock_in(job.id))
-            self.update_db()
+            self.update_db(UpdateDB())
 
     @work
     async def action_request_quit(self):

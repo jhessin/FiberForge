@@ -7,12 +7,13 @@ from textual.message import Message
 from textual.reactive import reactive
 from textual.widgets import Button, Label, Static
 
-from fiberforge.app.messages import UpdateDetail
+from fiberforge.app.messages import UpdateDB, UpdateDetail
 from fiberforge.app.screens.cfat_screen import CfatScreen
 from fiberforge.app.screens.meta_screen import MetaScreen
 from fiberforge.app.screens.network_screen import NetworkScreen
 from fiberforge.app.widgets.utils import FocusButton
 from fiberforge.models.job import Job
+from fiberforge.persistence.database import Database
 
 
 class JobDetails(Static):
@@ -61,3 +62,9 @@ class JobDetails(Static):
     def edit_cfat(self):
         """Edit the network spec"""
         self.post_message(UpdateDetail(CfatScreen().data_bind(JobDetails.job)))
+
+    @on(UpdateDB)
+    def update_job(self, _: UpdateDB):
+        assert self.job, 'Job should be assigned before we update it.'
+        with Database() as db:
+            self.job = db.jobs.by_id(self.job.id)
