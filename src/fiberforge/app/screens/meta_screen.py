@@ -199,32 +199,6 @@ class MetaScreen(Widget):
                 yield Button('Save', id='save', variant='primary')
                 yield Button('Cancel', id='cancel', variant='error')
 
-    def on_mount(self):
-        """
-        All selection and customization of components should be done on_mount.
-        Use a Select widget for the Enums
-        Use a DataTable for lists in the meta screen.
-        REMINDER - Use a Tree for Runs
-        """
-        job_type: int = -1
-        if (job := self.job) and (meta := job.meta):
-            job_type = (
-                0
-                if isinstance(meta.job_type, JobType.ASBUILT)
-                else 1
-                if isinstance(meta.job_type, JobType.DESIGN)
-                else -1
-            )
-            region = (
-                'region_mwr'
-                if isinstance(meta.region, JobRegion.MWR)
-                else 'region_houston'
-                if isinstance(meta.region, JobRegion.HOUSTON)
-                else 'region_bsr'
-            )
-
-        # self.query_one('#job_type', RadioSet).pressed_index = job_type
-
     def update_meta(self, meta: JobMeta):
         assert self.job, 'job should be assigned by now.'
         with Database() as db:

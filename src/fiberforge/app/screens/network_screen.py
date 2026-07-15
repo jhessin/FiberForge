@@ -5,7 +5,7 @@ from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.reactive import reactive
 from textual.widget import Widget
-from textual.widgets import Button, Input, Static
+from textual.widgets import Button, DataTable, Input, Static
 
 from fiberforge.app.widgets.smart_input import SmartInput
 from fiberforge.models.job import Job
@@ -33,73 +33,18 @@ class NetworkScreen(Widget):
     def compose(self) -> ComposeResult:
         """Compose the component here."""
         # Front load all the listed items
-        node_list: list[SmartInput] = []
         segment: str = ''
-        hub_list: list[SmartInput] = []
-        endsite_list: list[SmartInput] = []
-        removing_list: list[SmartInput] = []
 
         if (job := self.job) and (network := job.network):
-            node_list = [
-                SmartInput(
-                    label=str(i),
-                    id=f'node{i}',
-                    value=network.nodes[i],
-                    types=[
-                        SmartInput.Type.Input,
-                        SmartInput.Type.Output,
-                        SmartInput.Type.Delete,
-                    ],
-                )
-                for i in range(len(network.nodes))
-            ]
             segment = network.segment if network.segment else ''
-            hub_list = [
-                SmartInput(
-                    label=str(i),
-                    id=f'hub{i}',
-                    value=network.hubs[i],
-                    types=[
-                        SmartInput.Type.Input,
-                        SmartInput.Type.Output,
-                        SmartInput.Type.Delete,
-                    ],
-                )
-                for i in range(len(network.hubs))
-            ]
-            endsite_list = [
-                SmartInput(
-                    label=str(i),
-                    id=f'endsite{i}',
-                    value=network.endsites[i],
-                    types=[
-                        SmartInput.Type.Input,
-                        SmartInput.Type.Output,
-                        SmartInput.Type.Delete,
-                    ],
-                )
-                for i in range(len(network.endsites))
-            ]
-            removing_list = [
-                SmartInput(
-                    label=str(i),
-                    id=f'removing{i}',
-                    value=network.removing[i],
-                    types=[
-                        SmartInput.Type.Input,
-                        SmartInput.Type.Output,
-                        SmartInput.Type.Delete,
-                    ],
-                )
-                for i in range(len(network.removing))
-            ]
 
         with Vertical():
             yield Static(f"Job ID = {self.job.id.value if self.job else 'None'}")
 
-            yield Static('NODES:')
-            for node in node_list:
-                yield node
+            yield DataTable(id='node_list')
+            # yield Static('NODES:')
+            # for node in node_list:
+            #     yield node
             yield SmartInput(
                 label='Node',
                 id='nodes',
@@ -118,27 +63,30 @@ class NetworkScreen(Widget):
                 ],
             )
 
-            yield Static('HUBS:')
-            for hub in hub_list:
-                yield hub
+            yield DataTable(id='hub_list')
+            # yield Static('HUBS:')
+            # for hub in hub_list:
+            #     yield hub
             yield SmartInput(
                 label='Hub',
                 id='hubs',
                 placeholder='Add a hub',
             )
 
-            yield Static('ENDSITES:')
-            for endsite in endsite_list:
-                yield endsite
+            yield DataTable(id='endsite_list')
+            # yield Static('ENDSITES:')
+            # for endsite in endsite_list:
+            #     yield endsite
             yield SmartInput(
                 label='Endsite',
                 id='endsites',
                 placeholder='Add an endsite',
             )
 
-            yield Static('REMOVING:')
-            for removing in removing_list:
-                yield removing
+            yield DataTable(id='removing_list')
+            # yield Static('REMOVING:')
+            # for removing in removing_list:
+            #     yield removing
             yield SmartInput(
                 label='Removing',
                 id='removing',
@@ -147,6 +95,39 @@ class NetworkScreen(Widget):
             with Horizontal():
                 yield Button('Save', id='save', variant='primary')
                 yield Button('Cancel', id='cancel', variant='error')
+
+    def on_mount(self):
+        """
+        Use a Select widget for the Enums
+        Use a DataTable for lists.
+        REMINDER - Use a Tree for Runs
+        """
+        node_list: list[str] = []
+        hub_list: list[str] = []
+        endsite_list: list[str] = []
+        removing_list: list[str] = []
+
+        if (job := self.job) and (network := job.network):
+            node_list = [node for node in network.nodes]
+            hub_list = [hub for hub in network.hubs]
+            endsite_list = [endsite.value for endsite in network.endsites]
+            removing_list = [id.value for id in network.removing]
+
+        for table in self.query_children(DataTable):
+            table.cursor_type = 'row'
+            match table.id:
+                case 'node_list':
+                    table.add_column('Nodes')
+                    table.add_rows(node_list)
+                case 'hub_list':
+                    table.add_column('Hubs')
+                    table.add_rows(hub_list)
+                case 'endsite_list':
+                    table.add_column('Endsites')
+                    table.add_rows(endsite_list)
+                case 'removing_list':
+                    table.add_column('Removing')
+                    table.add_rows(removing_list)
 
     @on(Input.Submitted)
     @on(Button.Pressed, '#save')
