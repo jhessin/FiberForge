@@ -1,14 +1,19 @@
-from typing import Optional
+from dataclasses import replace
+from typing import Literal, Optional
 
 from textual import on
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.reactive import reactive
+from textual.types import NoSelection
 from textual.widget import Widget
-from textual.widgets import Button, DataTable, Input, Static
+from textual.widgets import Button, DataTable, Input, Select, Static
 
+from fiberforge.app.messages import UpdateDB
 from fiberforge.app.widgets.smart_input import SmartInput
-from fiberforge.models.job import Job
+from fiberforge.models.ids import DeviceId
+from fiberforge.models.job import Job, NetworkSpec
+from fiberforge.persistence.database import Database
 
 # class JobMeta(Serializable):
 #     job_type: JobType
@@ -77,6 +82,25 @@ class NetworkScreen(Widget):
             # yield Static('ENDSITES:')
             # for endsite in endsite_list:
             #     yield endsite
+            yield Select[DeviceId.DeviceType](
+                options=(
+                    (
+                        'Hub',
+                        DeviceId.DeviceType.HUB,
+                    ),
+                    (
+                        'Node',
+                        DeviceId.DeviceType.NODE,
+                    ),
+                    (
+                        'Term Panel',
+                        DeviceId.DeviceType.TERM_PANEL,
+                    ),
+                ),
+                allow_blank=False,
+                value=DeviceId.DeviceType.TERM_PANEL,
+                id='new_endsite_type',
+            )
             yield SmartInput(
                 label='Endsite',
                 id='endsites',
@@ -87,6 +111,30 @@ class NetworkScreen(Widget):
             # yield Static('REMOVING:')
             # for removing in removing_list:
             #     yield removing
+            yield Select[DeviceId.DeviceType | Literal['Span']](
+                options=(
+                    ('Span', 'Span'),
+                    (
+                        'Can',
+                        DeviceId.DeviceType.SPLICE_CAN,
+                    ),
+                    (
+                        'Hub',
+                        DeviceId.DeviceType.HUB,
+                    ),
+                    (
+                        'Node',
+                        DeviceId.DeviceType.NODE,
+                    ),
+                    (
+                        'Term Panel',
+                        DeviceId.DeviceType.TERM_PANEL,
+                    ),
+                ),
+                allow_blank=False,
+                value='Span',
+                id='new_removing_type',
+            )
             yield SmartInput(
                 label='Removing',
                 id='removing',
@@ -104,14 +152,22 @@ class NetworkScreen(Widget):
         """
         node_list: list[str] = []
         hub_list: list[str] = []
-        endsite_list: list[str] = []
-        removing_list: list[str] = []
+        endsite_list: list[tuple[str, str]] = []
+        removing_list: list[tuple[str, str]] = []
 
         if (job := self.job) and (network := job.network):
             node_list = [node for node in network.nodes]
             hub_list = [hub for hub in network.hubs]
-            endsite_list = [endsite.value for endsite in network.endsites]
-            removing_list = [id.value for id in network.removing]
+            endsite_list = [
+                (endsite.value, str(endsite.deviceType)) for endsite in network.endsites
+            ]
+            removing_list = [
+                (
+                    id.value,
+                    str(id.deviceType) if isinstance(id, DeviceId) else 'Span',
+                )
+                for id in network.removing
+            ]
 
         for table in self.query_children(DataTable):
             table.cursor_type = 'row'
@@ -123,17 +179,61 @@ class NetworkScreen(Widget):
                     table.add_column('Hubs')
                     table.add_rows(hub_list)
                 case 'endsite_list':
-                    table.add_column('Endsites')
+                    table.add_columns('Endsites', 'type')
                     table.add_rows(endsite_list)
                 case 'removing_list':
-                    table.add_column('Removing')
+                    table.add_columns('Removing', 'type')
                     table.add_rows(removing_list)
 
     @on(Input.Submitted)
     @on(Button.Pressed, '#save')
     def save(self, data: Input.Submitted | Button.Pressed):
-        """TODO: parse the information from the submitted field, or from all
+        """parse the information from the submitted field, or from all
         fields if the type of data is Button.Pressed."""
+        assert self.job, 'Job should be set before saving'
+        network: NetworkSpec = self.job.network or NetworkSpec()
+        new_job: Job = self.job
+
+        if isinstance(data, Input.Submitted):
+            match data.input.id:
+                case 'nodes':
+                    nodes = (*network.nodes, data.input.value)
+                    network = replace(network, nodes=nodes)
+                case 'segment':
+                    segment = data.input.value
+                    network = replace(network, segment=segment)
+                case 'hubs':
+                    hubs = (*network.hubs, data.input.value)
+                    network = replace(network, hubs=hubs)
+                case 'endsites':
+                    """Need to add a select for the device type"""
+                    endsite_type: DeviceId.DeviceType | NoSelection = self.query_one(
+                        '#new_endsite_type', Select
+                    ).value
+                    if isinstance(endsite_type, NoSelection):
+                        return
+                    endsites = (
+                        *network.endsites,
+                        DeviceId(data.input.value, deviceType=endsite_type),
+                    )
+                    network = replace(network, endsites=tuple(endsites))
+                case 'removing':
+                    """Need to add a select for the device type or span"""
+                    removing_type: (
+                        DeviceId.DeviceType | Literal['Span'] | NoSelection
+                    ) = self.query_one('#new_removing_type', Select).value
+                    if isinstance(removing_type, NoSelection):
+                        return
+                    if removing_type == 'Span':
+                        pass
+
+        else:
+            pass
+
+        new_job = replace(new_job, network=network)
+        with Database() as db:
+            db.jobs.save(new_job)
+        self.post_message(UpdateDB())
 
     @on(Button.Pressed, '#cancel')
     def action_cancel(self):
