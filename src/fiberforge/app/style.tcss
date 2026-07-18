@@ -43,12 +43,12 @@ JobScreen {
   align: center middle;
 
   Vertical {
-    width: 60;
+    width: 100%;
     height: 10;
     border: tall blue;
 
     Button {
-      width: 50%;
+      width: auto;
       height: 3;
     }
   }

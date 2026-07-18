@@ -28,6 +28,10 @@ class JobRegion(Serializable):
 
     type Type = MWR | BSR | HOUSTON
 
+    @classmethod
+    def is_type(cls, value):
+        return isinstance(value, (cls.MWR, cls.BSR, cls.HOUSTON))
+
 
 # ---------------------------------------------------------------------------
 # Job Type (simple enum for now)
@@ -45,6 +49,10 @@ class JobType(Serializable):
         revision_number: int = 0
 
     type Type = ASBUILT | DESIGN
+
+    @classmethod
+    def is_type(cls, value):
+        return isinstance(value, (cls.ASBUILT, cls.DESIGN))
 
 
 # ---------------------------------------------------------------------------

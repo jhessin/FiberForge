@@ -64,10 +64,6 @@ class NetworkScreen(Widget):
                 value=segment,
                 id='segment',
                 placeholder='Enter segment name',
-                types=[
-                    SmartInput.Type.Input,
-                    SmartInput.Type.Output,
-                ],
             )
 
             yield DataTable(id='hub_list')

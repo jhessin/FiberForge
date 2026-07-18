@@ -52,10 +52,6 @@ class CfatScreen(Widget):
             yield Static('MUX:')
             yield SmartInput(
                 label='Mux:',
-                types=[
-                    SmartInput.Type.Input,
-                    SmartInput.Type.Output,
-                ],
                 id='mux',
                 value=mux,
                 placeholder='Mux by id',
@@ -68,10 +64,6 @@ class CfatScreen(Widget):
                 value=str(distance),
                 placeholder='Enter the discance from hub to endsite',
                 type='number',
-                types=[
-                    SmartInput.Type.Input,
-                    SmartInput.Type.Output,
-                ],
             )
             yield Static('BANDWIDTH:')
             yield SmartInput(
@@ -80,10 +72,6 @@ class CfatScreen(Widget):
                 value=str(bandwidth),
                 placeholder='Enter the bandwidth required',
                 type='number',
-                types=[
-                    SmartInput.Type.Input,
-                    SmartInput.Type.Output,
-                ],
             )
             yield Static('PRETERM:')
             yield SmartInput(
@@ -91,10 +79,6 @@ class CfatScreen(Widget):
                 id='preterm',
                 value=preterm,
                 placeholder='Enter the preterm',
-                types=[
-                    SmartInput.Type.Input,
-                    SmartInput.Type.Output,
-                ],
             )
             yield Static('EXT_ID:')
             yield SmartInput(
@@ -102,10 +86,6 @@ class CfatScreen(Widget):
                 id='ext_id',
                 value=ext_id,
                 placeholder='Enter the ext_id from EP',
-                types=[
-                    SmartInput.Type.Input,
-                    SmartInput.Type.Output,
-                ],
             )
             with Horizontal():
                 yield Button('Save', id='save', variant='primary')

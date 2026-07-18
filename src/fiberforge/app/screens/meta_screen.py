@@ -12,6 +12,7 @@ from textual.widgets import (
     Label,
     Select,
     Static,
+    TextArea,
 )
 
 from fiberforge.app.messages import UpdateDB
@@ -24,17 +25,6 @@ from fiberforge.models.job import (
 )
 from fiberforge.persistence.database import Database
 
-# class JobMeta(Serializable):
-#     job_type: JobType
-#     region: JobRegion
-#     task_name: str
-#     company_name: str
-#     address: str
-#     lat: str = ''
-#     long: str = ''
-#     clli: str = ''
-#     notes: str = 'No Notes'
-
 
 class MetaScreen(Widget):
     BINDINGS = [
@@ -42,10 +32,77 @@ class MetaScreen(Widget):
         ('escape', 'cancel', 'Cancel'),
     ]
 
-    job: reactive[Optional[Job]] = reactive(None, recompose=True)
+    job: reactive[Optional[Job]] = reactive(None)
 
     def compose(self) -> ComposeResult:
         """Compose the component here."""
+
+        with Vertical():
+            """Begin yielding the fields here"""
+            yield Static(f"Job ID = {self.job.id.value if self.job else 'None'}")
+
+            with Horizontal():
+                yield Label('Job Type:')
+                yield Select(
+                    (),
+                    allow_blank=True,
+                    id='job_type',
+                )
+
+            yield SmartInput(
+                label='Revision Number',
+                id='revision_number',
+                type='number',
+            )
+
+            with Horizontal():
+                yield Label('Region:')
+                yield Select(
+                    options=(),
+                    allow_blank=True,
+                    id='region',
+                )
+            yield SmartInput(
+                label='Folder:',
+                id='folder',
+                placeholder='Enter the folder name.',
+            )
+            yield SmartInput(
+                label='Task Name:',
+                id='task_name',
+                placeholder='Enter the task name',
+            )
+            yield SmartInput(
+                label='Company Name:',
+                id='company_name',
+                placeholder='Enter the company name',
+            )
+            yield SmartInput(
+                label='Address',
+                id='address',
+                placeholder='Enter the address',
+            )
+            yield SmartInput(
+                label='Lat/Long:',
+                id='latlong',
+                placeholder='Enter the latitude and longitude',
+            )
+            yield SmartInput(
+                label='CLLI:',
+                id='clli',
+                placeholder='Enter the clli code.',
+            )
+            yield Static('Notes:')
+            yield TextArea(
+                id='notes',
+                placeholder='Enter any notes',
+            )
+            with Horizontal():
+                yield Button('Save', id='save', variant='primary')
+                yield Button('Cancel', id='cancel', variant='error')
+
+    def watch_job(self, job: Job | None) -> None:
+        """fill the components here."""
         job_type: JobType.Type | None = None
         region: JobRegion.Type | None = None
         folder = ''
@@ -57,10 +114,14 @@ class MetaScreen(Widget):
         clli = ''
         notes = ''
 
-        if (job := self.job) and (meta := job.meta):
+        if job and (meta := job.meta):
             job_type = meta.job_type
             region = meta.region
-            folder = meta.region.folder if meta.region else ''
+            folder = (
+                meta.region.folder
+                if meta.region and JobRegion.is_type(meta.region)
+                else ''
+            )
             task_name = meta.task_name
             company_name = meta.company_name
             address = meta.address
@@ -69,135 +130,73 @@ class MetaScreen(Widget):
             clli = meta.clli
             notes = meta.notes
 
-        with Vertical():
-            """Begin yielding the fields here"""
-            yield Static(f"Job ID = {self.job.id.value if self.job else 'None'}")
+            job_type_select = self.query_one('#job_type', Select)
+            job_type_select.set_options((
+                ('ASBUILT', JobType.ASBUILT()),
+                (
+                    'DESIGN',
+                    JobType.DESIGN()
+                    if not isinstance(job_type, JobType.DESIGN)
+                    else job_type,
+                ),
+            ))
+            if JobType.is_type(job_type):
+                job_type_select.value = job_type
+            else:
+                job_type_select.clear()
 
-            with Horizontal():
-                yield Label('Job Type:')
-                yield Select[JobType.Type](
-                    (
-                        ('ASBUILT', JobType.ASBUILT()),
-                        (
-                            'DESIGN',
-                            JobType.DESIGN()
-                            if not isinstance(job_type, JobType.DESIGN)
-                            else job_type,
-                        ),
-                    ),
-                    value=job_type or Select.NULL,
-                    id='job_type',
-                )
-            if (
-                self.job
-                and self.job.meta
-                and isinstance(self.job.meta.job_type, JobType.DESIGN)
-            ):
-                yield SmartInput(
-                    label='Revision Number',
-                    id='revision_number',
-                    value=str(self.job.meta.job_type.revision_number),
-                    type='number',
-                )
-            with Horizontal():
-                yield Label('Region:')
-                yield Select[JobRegion.Type](
-                    options=(
-                        (
-                            'MWR',
-                            region
-                            if isinstance(region, JobRegion.MWR)
-                            else JobRegion.MWR(),
-                        ),
-                        (
-                            'HOUSTON',
-                            region
-                            if isinstance(region, JobRegion.HOUSTON)
-                            else JobRegion.HOUSTON(),
-                        ),
-                        (
-                            'BSR',
-                            region
-                            if isinstance(region, JobRegion.BSR)
-                            else JobRegion.BSR(),
-                        ),
-                    ),
-                    value=region or Select.NULL,
-                    id='region',
-                )
-            yield SmartInput(
-                label='Folder:',
-                id='folder',
-                value=folder,
-                placeholder='Enter the folder name.',
-                types=(
-                    SmartInput.Type.Input,
-                    SmartInput.Type.Output,
+            revision_number_field = self.query_one('#revision_number', Input)
+            if isinstance(meta.job_type, JobType.DESIGN):
+                revision_number_field.value = str(meta.job_type.revision_number)
+                revision_number_field.type = 'number'
+                revision_number_field.disabled = False
+            else:
+                revision_number_field.value = 'Only Designs have a revision number'
+                revision_number_field.disabled = True
+
+            region_select = self.query_one('#region', Select)
+            region_select.set_options((
+                (
+                    'MWR',
+                    region if isinstance(region, JobRegion.MWR) else JobRegion.MWR(),
                 ),
-            )
-            yield SmartInput(
-                label='Task Name:',
-                id='task_name',
-                value=task_name,
-                placeholder='Enter the task name',
-                types=(
-                    SmartInput.Type.Input,
-                    SmartInput.Type.Output,
+                (
+                    'HOUSTON',
+                    region
+                    if isinstance(region, JobRegion.HOUSTON)
+                    else JobRegion.HOUSTON(),
                 ),
-            )
-            yield SmartInput(
-                label='Company Name:',
-                id='company_name',
-                value=company_name,
-                placeholder='Enter the company name',
-                types=(
-                    SmartInput.Type.Input,
-                    SmartInput.Type.Output,
+                (
+                    'BSR',
+                    region if isinstance(region, JobRegion.BSR) else JobRegion.BSR(),
                 ),
-            )
-            yield SmartInput(
-                label='Address',
-                id='address',
-                value=address,
-                placeholder='Enter the address',
-                types=(
-                    SmartInput.Type.Input,
-                    SmartInput.Type.Output,
-                ),
-            )
-            yield SmartInput(
-                label='Lat/Long:',
-                id='latlong',
-                value=f'{lat}, {long}' if lat or long else '',
-                placeholder='Enter the latitude and longitude',
-                types=(
-                    SmartInput.Type.Input,
-                    SmartInput.Type.Output,
-                ),
-            )
-            yield SmartInput(
-                label='CLLI:',
-                id='clli',
-                value=clli,
-                placeholder='Enter the clli code.',
-                types=(
-                    SmartInput.Type.Input,
-                    SmartInput.Type.Output,
-                ),
-            )
-            yield SmartInput(
-                label='Notes:',
-                id='notes',
-                value=notes,
-                placeholder='Enter any notes',
-                types=(
-                    SmartInput.Type.Input,
-                    SmartInput.Type.Output,
-                ),
-            )
-            with Horizontal():
-                yield Button('Save', id='save', variant='primary')
-                yield Button('Cancel', id='cancel', variant='error')
+            ))
+            if JobRegion.is_type(region):
+                region_select.value = region
+            else:
+                region_select.clear()
+
+            folder_input = self.query_one('#folder', Input)
+            folder_input.value = folder
+
+            task_input = self.query_one('#task_name', Input)
+            task_input.value = task_name
+
+            company_input = self.query_one('#company_name', Input)
+            company_input.value = company_name
+
+            address_input = self.query_one('#address', Input)
+            address_input.value = address
+
+            if lat or long:
+                latlong_input = self.query_one('#latlong', Input)
+                latlong_input.value = f'{lat}, {long}'
+
+            clli_input = self.query_one('#clli', Input)
+            clli_input.value = clli
+
+            notes_input = self.query_one('#notes', TextArea)
+            notes_input.text = notes
 
     def update_meta(self, meta: JobMeta):
         assert self.job, 'job should be assigned by now.'
@@ -211,44 +210,61 @@ class MetaScreen(Widget):
         assert self.job, 'job should be assigned by now.'
         meta = self.job.meta or JobMeta()
         if data.control.id == 'region':
-            meta = replace(meta, region=data.control.value)
+            meta = replace(
+                meta,
+                region=data.control.value
+                if data.control.value is not Select.NULL
+                else None,
+            )
         else:
-            meta = replace(meta, job_type=data.control.value)
+            meta = replace(
+                meta,
+                job_type=data.control.value
+                if data.control.value is not Select.NULL
+                else None,
+            )
         self.update_meta(meta)
 
     @on(Input.Submitted)
     @on(Button.Pressed, '#save')
-    def save(self, data: Input.Submitted):
+    def save(self, data: Input.Submitted | Button.Pressed):
         """Parse the information from the submitted field, or from all fields."""
         assert self.job, 'job should be assigned by now.'
         meta: JobMeta = self.job.meta or JobMeta()
-        match data.control.id:
-            case 'revision_number':
-                if isinstance(meta.job_type, JobType.DESIGN):
+
+        if isinstance(data, Button.Pressed):
+            # TODO: queary and process all inputs
+            pass
+        else:
+            match data.control.id:
+                case 'revision_number':
+                    if isinstance(meta.job_type, JobType.DESIGN):
+                        meta = replace(
+                            meta,
+                            job_type=replace(meta.job_type, revision_number=data.value),
+                        )
+                case 'folder':
+                    if meta.region:
+                        meta = replace(
+                            meta, region=replace(meta.region, folder=data.value)
+                        )
+                case 'task_name':
+                    meta = replace(meta, task_name=data.value)
+                case 'company_name':
+                    meta = replace(meta, company_name=data.value)
+                case 'address':
+                    meta = replace(meta, address=data.value)
+                case 'latlong':
+                    (lat, long) = data.value.split(',')
                     meta = replace(
                         meta,
-                        job_type=replace(meta.job_type, revision_number=data.value),
+                        lat=lat.strip(),
+                        long=long.strip(),
                     )
-            case 'folder':
-                if meta.region:
-                    meta = replace(meta, region=replace(meta.region, folder=data.value))
-            case 'task_name':
-                meta = replace(meta, task_name=data.value)
-            case 'company_name':
-                meta = replace(meta, company_name=data.value)
-            case 'address':
-                meta = replace(meta, address=data.value)
-            case 'latlong':
-                (lat, long) = data.value.split(',')
-                meta = replace(
-                    meta,
-                    lat=lat.strip(),
-                    long=long.strip(),
-                )
-            case 'clli':
-                meta = replace(meta, clli=data.value)
-            case 'notes':
-                meta = replace(meta, notes=data.value)
+                case 'clli':
+                    meta = replace(meta, clli=data.value)
+                case 'notes':
+                    meta = replace(meta, notes=data.value)
         self.update_meta(meta)
 
     @on(Button.Pressed, '#cancel')
