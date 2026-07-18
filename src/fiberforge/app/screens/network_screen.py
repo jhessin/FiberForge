@@ -3,7 +3,7 @@ from typing import Literal, Optional
 
 from textual import on
 from textual.app import ComposeResult
-from textual.containers import Container, Horizontal, VerticalScroll
+from textual.containers import Horizontal, VerticalScroll
 from textual.reactive import reactive
 from textual.types import NoSelection
 from textual.widget import Widget
@@ -46,9 +46,7 @@ class NetworkScreen(Widget):
         with VerticalScroll():
             yield Static(f"Job ID = {self.job.id.value if self.job else 'None'}")
 
-            yield Container(
-                DataTable(id='node_list'),
-            )
+            yield DataTable(id='node_list')
             yield SmartInput(
                 label='Node',
                 id='nodes',
@@ -67,14 +65,14 @@ class NetworkScreen(Widget):
                 ],
             )
 
-            yield Container(DataTable(id='hub_list'))
+            yield DataTable(id='hub_list')
             yield SmartInput(
                 label='Hub',
                 id='hubs',
                 placeholder='Add a hub',
             )
 
-            yield Container(DataTable(id='endsite_list'))
+            yield DataTable(id='endsite_list')
             # yield Static('ENDSITES:')
             # for endsite in endsite_list:
             #     yield endsite
@@ -103,7 +101,7 @@ class NetworkScreen(Widget):
                 placeholder='Add an endsite',
             )
 
-            yield Container(DataTable(id='removing_list'))
+            yield DataTable(id='removing_list')
             # yield Static('REMOVING:')
             # for removing in removing_list:
             #     yield removing
