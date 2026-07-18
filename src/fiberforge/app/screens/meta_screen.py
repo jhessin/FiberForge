@@ -208,7 +208,6 @@ class MetaScreen(Widget):
     @on(Select.Changed)
     def option_selected(self, data: Select.Changed):
         """Parse all the options from the OptionList fields"""
-        self.log.debug('Select.Changed has been successfully called')
         assert self.job, 'job should be assigned by now.'
         meta = self.job.meta or JobMeta()
         if data.control.id == 'region':
@@ -223,7 +222,6 @@ class MetaScreen(Widget):
         """Parse the information from the submitted field, or from all fields."""
         assert self.job, 'job should be assigned by now.'
         meta: JobMeta = self.job.meta or JobMeta()
-        self.log.debug('save has been successfully called')
         match data.control.id:
             case 'revision_number':
                 if isinstance(meta.job_type, JobType.DESIGN):

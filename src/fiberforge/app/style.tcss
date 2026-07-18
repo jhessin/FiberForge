@@ -58,6 +58,11 @@ JobScreen {
 MetaScreen, NetworkScreen, CfatScreen {
   align: center middle;
 
+  Container > DataTable {
+    height: 10;
+    width: 100%;
+  }
+
   Button {
     width: 50%;
     height: 3;

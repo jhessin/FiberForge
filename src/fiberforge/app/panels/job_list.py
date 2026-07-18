@@ -1,6 +1,6 @@
 from typing import Optional
 
-from textual import log, on
+from textual import on
 from textual.app import ComposeResult
 from textual.containers import HorizontalGroup
 from textual.reactive import reactive
@@ -37,10 +37,8 @@ class JobItem(ListItem):
         with Database() as db:
             clock = db.clock.today()
             if clock.is_clocked_in(self.job.id):
-                log.event('CLOCKING OUT')
                 clock = clock.clock_out()
             else:
-                log.event('CLOCKING IN')
                 clock = clock.clock_in(self.job.id)
             db.clock.save(clock)
 

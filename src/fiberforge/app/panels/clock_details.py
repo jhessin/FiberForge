@@ -29,7 +29,6 @@ class CommandLine(Static):
 
     @on(Button.Pressed, '#delete')
     def delete_time(self, event: Button.Pressed):
-        self.log.debug(f'deleting time: {self.span.start.isoformat()}')
         with Database() as db:
             db.clock.delete(self.span)
         self.post_message(UpdateDB())

@@ -1,9 +1,11 @@
+# network_screen.py
+
 from dataclasses import replace
 from typing import Literal, Optional
 
 from textual import on
 from textual.app import ComposeResult
-from textual.containers import Container, Horizontal, VerticalScroll
+from textual.containers import Horizontal, Vertical
 from textual.reactive import reactive
 from textual.types import NoSelection
 from textual.widget import Widget
@@ -33,7 +35,7 @@ class NetworkScreen(Widget):
         ('escape', 'cancel', 'Cancel'),
     ]
 
-    job: reactive[Optional[Job]] = reactive(None)
+    job: reactive[Optional[Job]] = reactive(None, recompose=True)
 
     def compose(self) -> ComposeResult:
         """Compose the component here."""
@@ -43,12 +45,13 @@ class NetworkScreen(Widget):
         if (job := self.job) and (network := job.network):
             segment = network.segment if network.segment else ''
 
-        with VerticalScroll():
+        with Vertical():
             yield Static(f"Job ID = {self.job.id.value if self.job else 'None'}")
 
-            yield Container(
-                DataTable(id='node_list'),
-            )
+            yield DataTable(id='node_list')
+            # yield Static('NODES:')
+            # for node in node_list:
+            #     yield node
             yield SmartInput(
                 label='Node',
                 id='nodes',
@@ -67,14 +70,17 @@ class NetworkScreen(Widget):
                 ],
             )
 
-            yield Container(DataTable(id='hub_list'))
+            yield DataTable(id='hub_list')
+            # yield Static('HUBS:')
+            # for hub in hub_list:
+            #     yield hub
             yield SmartInput(
                 label='Hub',
                 id='hubs',
                 placeholder='Add a hub',
             )
 
-            yield Container(DataTable(id='endsite_list'))
+            yield DataTable(id='endsite_list')
             # yield Static('ENDSITES:')
             # for endsite in endsite_list:
             #     yield endsite
@@ -103,7 +109,7 @@ class NetworkScreen(Widget):
                 placeholder='Add an endsite',
             )
 
-            yield Container(DataTable(id='removing_list'))
+            yield DataTable(id='removing_list')
             # yield Static('REMOVING:')
             # for removing in removing_list:
             #     yield removing
@@ -140,51 +146,46 @@ class NetworkScreen(Widget):
                 yield Button('Save', id='save', variant='primary')
                 yield Button('Cancel', id='cancel', variant='error')
 
-    def watch_job(self):
+    def on_mount(self):
         """
         Use a Select widget for the Enums
         Use a DataTable for lists.
         REMINDER - Use a Tree for Runs
         """
-        node_list: set[str] = set()
-        hub_list: set[str] = set()
-        endsite_list: set[tuple[str, str]] = set()
-        removing_list: set[tuple[str, str]] = set()
-        self.log.debug(f'job = {self.job}')
+        node_list: list[str] = []
+        hub_list: list[str] = []
+        endsite_list: list[tuple[str, str]] = []
+        removing_list: list[tuple[str, str]] = []
 
         if (job := self.job) and (network := job.network):
-            self.log.debug(f'network = {network}')
-            node_list = {node for node in network.nodes}
-            hub_list = {hub for hub in network.hubs}
-            endsite_list = {
+            node_list = [node for node in network.nodes]
+            hub_list = [hub for hub in network.hubs]
+            endsite_list = [
                 (endsite.value, str(endsite.deviceType)) for endsite in network.endsites
-            }
-            removing_list = {
+            ]
+            removing_list = [
                 (
                     id.value,
                     str(id.deviceType) if isinstance(id, DeviceId) else 'Span',
                 )
                 for id in network.removing
-            }
+            ]
 
         for table in self.query(DataTable):
-            table.cursor_type = 'row'
-            table.clear(columns=True)
+            # table.cursor_type = 'row'
             match table.id:
                 case 'node_list':
                     table.add_column('Nodes')
-                    self.log.debug(f'Showing nodes {node_list}')
                     for row in node_list:
                         table.add_row(
-                            row,
+                            (row,),
                             key=row,
                         )
-                    self.log.debug(f'There should be {table.row_count} rows')
                 case 'hub_list':
                     table.add_column('Hubs')
                     for row in hub_list:
                         table.add_row(
-                            row,
+                            (row,),
                             key=row,
                         )
                 case 'endsite_list':
@@ -192,8 +193,7 @@ class NetworkScreen(Widget):
                     # table.add_rows(endsite_list)
                     for row, type in endsite_list:
                         table.add_row(
-                            row,
-                            type,
+                            (row, type),
                             key=row,
                         )
                 case 'removing_list':
@@ -201,8 +201,7 @@ class NetworkScreen(Widget):
                     # table.add_rows(removing_list)
                     for row, type in removing_list:
                         table.add_row(
-                            row,
-                            type,
+                            (row, type),
                             key=row,
                         )
 
@@ -219,15 +218,16 @@ class NetworkScreen(Widget):
             match data.input.id:
                 case 'nodes':
                     self.log.debug(f'adding node {data.input.value}')
-                    nodes = {*network.nodes, data.input.value}
+                    nodes = (*network.nodes, data.input.value)
                     self.log.debug(f'setting nodes {nodes}')
-                    network = replace(network, nodes=tuple(nodes))
+                    network = replace(network, nodes=nodes)
+                    self.log.debug(f'updated network {network}')
                 case 'segment':
                     segment = data.input.value
                     network = replace(network, segment=segment)
                 case 'hubs':
-                    hubs = {*network.hubs, data.input.value}
-                    network = replace(network, hubs=tuple(hubs))
+                    hubs = (*network.hubs, data.input.value)
+                    network = replace(network, hubs=hubs)
                 case 'endsites':
                     """Need to add a select for the device type"""
                     endsite_type: DeviceId.DeviceType | NoSelection = self.query_one(
@@ -235,10 +235,10 @@ class NetworkScreen(Widget):
                     ).value
                     if isinstance(endsite_type, NoSelection):
                         return
-                    endsites = {
+                    endsites = (
                         *network.endsites,
                         DeviceId(data.input.value, deviceType=endsite_type),
-                    }
+                    )
                     network = replace(network, endsites=tuple(endsites))
                 case 'removing':
                     """Need to add a select for the device type or span"""
@@ -248,14 +248,14 @@ class NetworkScreen(Widget):
                     if isinstance(removing_type, NoSelection):
                         return
                     if removing_type == 'Span':
-                        removing = {*network.removing, SpanId(data.input.value)}
-                        network = replace(network, removing=tuple(removing))
+                        removing = (*network.removing, SpanId(data.input.value))
+                        network = replace(network, removing=removing)
                     else:
-                        removing = {
+                        removing = (
                             *network.removing,
                             DeviceId(data.input.value, removing_type),
-                        }
-                        network = replace(network, removing=tuple(removing))
+                        )
+                        network = replace(network, removing=removing)
 
         else:
             """Parse all inputs here"""
@@ -264,9 +264,108 @@ class NetworkScreen(Widget):
         new_job = replace(new_job, network=network)
         with Database() as db:
             db.jobs.save(new_job)
-            self.log.debug(f'updating job with {new_job}')
         self.post_message(UpdateDB())
 
     @on(Button.Pressed, '#cancel')
     def action_cancel(self):
         self.remove()
+
+-- style.tcss
+Screen {
+  align: center middle;
+}
+
+JobList {
+  border: tall white;
+  width: 1fr;
+  height: 100%;
+  margin: 1 1;
+
+  &:focus {
+    border: thick white;
+  }
+
+  JobItem {
+
+    Button {
+      dock: right;
+    }
+  }
+}
+
+JobDetails {
+  border: tall blue;
+  width: 1fr;
+  height: 50%;
+  margin: 1 1;
+  align: center middle;
+}
+
+Details {
+  border: tall teal;
+  width: 2fr;
+  height: 100%;
+  margin: 1 1;
+}
+
+Label {
+  padding: 1 2;
+}
+
+JobScreen {
+  align: center middle;
+
+  Vertical {
+    width: 60;
+    height: 10;
+    border: tall blue;
+
+    Button {
+      width: 50%;
+      height: 3;
+    }
+  }
+
+}
+
+MetaScreen, NetworkScreen, CfatScreen {
+  align: center middle;
+
+  DataTable {
+    height: 1fr;
+    width: 100%;
+  }
+
+  Button {
+    width: 50%;
+    height: 3;
+  }
+}
+
+RunList {
+  border: tall aqua;
+  width: 1fr;
+  height: 50%;
+  margin: 1 1;
+  &:focus {
+    border: thick aqua;
+  }
+}
+
+SmartInput {
+  width: 100%;
+  height: 3;
+
+  Label {
+    width: 1fr;
+  }
+
+  Input {
+    width: 3fr;
+  }
+
+  Button {
+    width: 1fr;
+  }
+
+}

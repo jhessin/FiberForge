@@ -1,6 +1,6 @@
 from typing import Optional
 
-from textual import log, on, work
+from textual import on, work
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.reactive import reactive
@@ -62,7 +62,6 @@ class MainScreen(Screen):
     async def new_job(self, new_job: JobScreen.NewJob):
         job = new_job.job
         if job:
-            log(f'New Job created {job}')
             with Database() as db:
                 db.jobs.save(job)
                 if self.time_clock:
