@@ -31,6 +31,11 @@ class NetworkScreen(Widget):
     BINDINGS = [
         ('enter', 'submit', 'Save Network'),
         ('escape', 'cancel', 'Cancel'),
+        ('j', 'dt_down', 'Down'),
+        ('k', 'dt_up', 'Up'),
+        ('h', 'dt_left', 'Left'),
+        ('l', 'dt_right', 'Right'),
+        ('d', 'dt_delete', 'Delete'),
     ]
 
     job: reactive[Optional[Job]] = reactive(None)
@@ -203,6 +208,35 @@ class NetworkScreen(Widget):
                             type,
                             key=row,
                         )
+
+    @property
+    def _focused_table(self) -> DataTable | None:
+        widget = self.app.focused
+        return widget if isinstance(widget, DataTable) else None
+
+    def action_dt_down(self):
+        if table := self._focused_table:
+            table.action_cursor_down()
+
+    def action_dt_up(self):
+        if table := self._focused_table:
+            table.action_cursor_up()
+
+    def action_dt_left(self):
+        if table := self._focused_table:
+            table.action_cursor_left()
+
+    def action_dt_right(self):
+        if table := self._focused_table:
+            table.action_cursor_right()
+
+    def action_dt_delete(self):
+        if table := self._focused_table:
+            cell_index = table.cursor_coordinate
+            cell_key = table.coordinate_to_cell_key(cell_index)
+            row_key = cell_key.row_key
+            if row_key is not None:
+                table.remove_row(row_key)
 
     @on(Input.Submitted)
     @on(Button.Pressed, '#save')
