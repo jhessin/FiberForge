@@ -232,39 +232,55 @@ class MetaScreen(Widget):
         assert self.job, 'job should be assigned by now.'
         meta: JobMeta = self.job.meta or JobMeta()
 
-        if isinstance(data, Button.Pressed):
-            # TODO: queary and process all inputs
-            pass
-        else:
-            match data.control.id:
+        def process_id(id: str | None, value: str):
+            """Process the data given the id and the value"""
+            nonlocal meta
+            match id:
                 case 'revision_number':
                     if isinstance(meta.job_type, JobType.DESIGN):
                         meta = replace(
                             meta,
-                            job_type=replace(meta.job_type, revision_number=data.value),
+                            job_type=replace(meta.job_type, revision_number=value),
                         )
                 case 'folder':
                     if meta.region:
-                        meta = replace(
-                            meta, region=replace(meta.region, folder=data.value)
-                        )
+                        meta = replace(meta, region=replace(meta.region, folder=value))
                 case 'task_name':
-                    meta = replace(meta, task_name=data.value)
+                    meta = replace(meta, task_name=value)
                 case 'company_name':
-                    meta = replace(meta, company_name=data.value)
+                    meta = replace(meta, company_name=value)
                 case 'address':
-                    meta = replace(meta, address=data.value)
+                    meta = replace(meta, address=value)
                 case 'latlong':
-                    (lat, long) = data.value.split(',')
+                    (lat, long) = value.split(',')
                     meta = replace(
                         meta,
                         lat=lat.strip(),
                         long=long.strip(),
                     )
                 case 'clli':
-                    meta = replace(meta, clli=data.value)
-                case 'notes':
-                    meta = replace(meta, notes=data.value)
+                    meta = replace(meta, clli=value)
+
+        if isinstance(data, Button.Pressed):
+            for input in self.query(Input):
+                try:
+                    process_id(input.id, input.value)
+                except ValueError:
+                    input.value = ''
+            # save the notes
+            notes = self.query_one('#notes', TextArea)
+            meta = replace(meta, notes=notes.text)
+
+        else:
+            try:
+                process_id(data.control.id, data.value)
+            except ValueError:
+                data.control.value = ''
+
+            # save the notes
+            notes = self.query_one('#notes', TextArea)
+            meta = replace(meta, notes=notes.text)
+
         self.update_meta(meta)
 
     @on(Button.Pressed, '#cancel')

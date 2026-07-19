@@ -15,17 +15,6 @@ from fiberforge.models.ids import DeviceId, SpanId
 from fiberforge.models.job import Job, NetworkSpec
 from fiberforge.persistence.database import Database
 
-# class JobMeta(Serializable):
-#     job_type: JobType
-#     region: JobRegion
-#     task_name: str
-#     company_name: str
-#     address: str
-#     lat: str = ''
-#     long: str = ''
-#     clli: str = ''
-#     notes: str = 'No Notes'
-
 
 class NetworkScreen(Widget):
     BINDINGS = [
