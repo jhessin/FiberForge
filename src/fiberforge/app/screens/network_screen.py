@@ -7,10 +7,11 @@ from textual.containers import Horizontal, VerticalScroll
 from textual.reactive import reactive
 from textual.types import NoSelection
 from textual.widget import Widget
-from textual.widgets import Button, DataTable, Input, Select, Static
+from textual.widgets import Button, Input, Select, Static
 
 from fiberforge.app.messages import UpdateDB
 from fiberforge.app.widgets.smart_input import SmartInput
+from fiberforge.app.widgets.vim_table import VimTable as DataTable
 from fiberforge.models.ids import DeviceId, SpanId
 from fiberforge.models.job import Job, NetworkSpec
 from fiberforge.persistence.database import Database
@@ -20,11 +21,11 @@ class NetworkScreen(Widget):
     BINDINGS = [
         ('enter', 'submit', 'Save Network'),
         ('escape', 'cancel', 'Cancel'),
-        ('j', 'dt_down', 'Down'),
-        ('k', 'dt_up', 'Up'),
-        ('h', 'dt_left', 'Left'),
-        ('l', 'dt_right', 'Right'),
-        ('d', 'dt_delete', 'Delete'),
+        # ('j', 'dt_down', 'Down'),
+        # ('k', 'dt_up', 'Up'),
+        # ('h', 'dt_left', 'Left'),
+        # ('l', 'dt_right', 'Right'),
+        # ('d', 'dt_delete', 'Delete'),
     ]
 
     job: reactive[Optional[Job]] = reactive(None)
@@ -138,10 +139,8 @@ class NetworkScreen(Widget):
         hub_list: set[str] = set()
         endsite_list: set[tuple[str, str]] = set()
         removing_list: set[tuple[str, str]] = set()
-        self.log.debug(f'job = {self.job}')
 
         if (job := self.job) and (network := job.network):
-            self.log.debug(f'network = {network}')
             node_list = {node for node in network.nodes}
             hub_list = {hub for hub in network.hubs}
             endsite_list = {
@@ -161,13 +160,11 @@ class NetworkScreen(Widget):
             match table.id:
                 case 'node_list':
                     table.add_column('Nodes')
-                    self.log.debug(f'Showing nodes {node_list}')
                     for row in node_list:
                         table.add_row(
                             row,
                             key=row,
                         )
-                    self.log.debug(f'There should be {table.row_count} rows')
                 case 'hub_list':
                     table.add_column('Hubs')
                     for row in hub_list:
@@ -194,34 +191,36 @@ class NetworkScreen(Widget):
                             key=row,
                         )
 
-    @property
-    def _focused_table(self) -> DataTable | None:
-        widget = self.app.focused
-        return widget if isinstance(widget, DataTable) else None
+    @on(DataTable.DeleteRow)
+    def delete_row(self, data: DataTable.DeleteRow):
+        assert self.job, 'Job should be set before deleting a row'
+        network: NetworkSpec = self.job.network or NetworkSpec()
+        new_job: Job = self.job
+        self.log.debug(f'Deleting data: {data}')
+        match data.id:
+            case 'node_list':
+                node_list = list(network.nodes)
+                node_list.remove(data.value)
+                network = replace(network, nodes=tuple(node_list))
+            case 'hub_list':
+                hub_list = list(network.hubs)
+                hub_list.remove(data.value)
+                network = replace(network, hubs=tuple(hub_list))
+            case 'endsite_list':
+                endsites = [
+                    value for value in network.endsites if value.value != data.value
+                ]
+                network = replace(network, endsites=tuple(endsites))
+            case 'removing_list':
+                removing = [
+                    value for value in network.removing if value.value != data.value
+                ]
+                network = replace(network, removing=tuple(removing))
 
-    def action_dt_down(self):
-        if table := self._focused_table:
-            table.action_cursor_down()
-
-    def action_dt_up(self):
-        if table := self._focused_table:
-            table.action_cursor_up()
-
-    def action_dt_left(self):
-        if table := self._focused_table:
-            table.action_cursor_left()
-
-    def action_dt_right(self):
-        if table := self._focused_table:
-            table.action_cursor_right()
-
-    def action_dt_delete(self):
-        if table := self._focused_table:
-            cell_index = table.cursor_coordinate
-            cell_key = table.coordinate_to_cell_key(cell_index)
-            row_key = cell_key.row_key
-            if row_key is not None:
-                table.remove_row(row_key)
+        new_job = replace(new_job, network=network)
+        with Database() as db:
+            db.jobs.save(new_job)
+        self.post_message(UpdateDB())
 
     @on(Input.Submitted)
     @on(Button.Pressed, '#save')
@@ -235,9 +234,7 @@ class NetworkScreen(Widget):
         if isinstance(data, Input.Submitted):
             match data.input.id:
                 case 'nodes':
-                    self.log.debug(f'adding node {data.input.value}')
                     nodes = {*network.nodes, data.input.value}
-                    self.log.debug(f'setting nodes {nodes}')
                     network = replace(network, nodes=tuple(nodes))
                 case 'segment':
                     segment = data.input.value
@@ -281,7 +278,6 @@ class NetworkScreen(Widget):
         new_job = replace(new_job, network=network)
         with Database() as db:
             db.jobs.save(new_job)
-            self.log.debug(f'updating job with {new_job}')
         self.post_message(UpdateDB())
 
     @on(Button.Pressed, '#cancel')
